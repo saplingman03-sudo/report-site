@@ -558,6 +558,6 @@ const fromCSV = (): Promise<Row[]> =>
         把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。
       </p>
     </div>
-  </div>   {/* ← 這個是最外層容器的收尾 */}
+  </div>   ){/* ← 這個是最外層容器的收尾 */}
 );          {/* ← 收掉 return ( */}
 }           {/* ← 收掉整個 function App */}
