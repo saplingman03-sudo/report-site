@@ -560,6 +560,5 @@ const fromCSV = (): Promise<Row[]> =>
       </div>
     </div>
 
-
-
-          )}
+    );
+} 
