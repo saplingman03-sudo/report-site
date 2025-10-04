@@ -124,7 +124,7 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 }, [rows, n]);
 
 // ===================== 主元件 =====================
-export default function App() {
+  export default function App() {
   // 原始資料（支援累積上傳）
   const [rows, setRows] = useState<Row[]>(seed);
 
@@ -547,18 +547,17 @@ const fromCSV = (): Promise<Row[]> =>
                 {"營業時間" in r && <td>{r["營業時間"]}</td>}
               </tr>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-                        {/* 小提示：部署 */}
-      <div className="p-4 bg-white rounded-2xl border shadow-sm">
-        <h3 className="font-semibold mb-1">部署小提示</h3>
-        <p className="text-sm text-gray-600">
-          把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。
-        </p>
-      </div>
+                  </tbody>
+      </table>
     </div>
 
-    );
-                                                     }
+    {/* 小提示：部署 */}
+    <div className="p-4 bg-white rounded-2xl border shadow-sm">
+      <h3 className="font-semibold mb-1">部署小提示</h3>
+      <p className="text-sm text-gray-600">
+        把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。
+      </p>
+    </div>
+  </div>   {/* ← 這個是最外層容器的收尾 */}
+);          {/* ← 收掉 return ( */}
+}           {/* ← 收掉整個 function App */}
