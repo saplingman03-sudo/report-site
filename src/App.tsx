@@ -200,7 +200,7 @@ const fromCSV = (): Promise<Row[]> =>
       const ws = wb.Sheets[wb.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json<any>(ws, { raw: false });
       return json.map(toRow).filter(x=>x.代理商 && x.商戶);
-    }; // ← 收掉 parseOne
+    }); // ← 收掉 parseOne
 
     const batches: Row[][] = [];
     for (const f of Array.from(files)) {
@@ -561,4 +561,4 @@ const fromCSV = (): Promise<Row[]> =>
     </div>
 
     );
-                                                    }
+                                                     }
