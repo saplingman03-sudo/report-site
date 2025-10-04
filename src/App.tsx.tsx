@@ -310,7 +310,7 @@ export default function App() {
   return (
     <div className="min-h-screen p-6 space-y-6 bg-slate-50">
       <h1 className="text-3xl font-bold">"📊 開分量 / 營業額（多月累積與對比版）"</h1>
-    <div>
+    </div>
       {/* 上傳區（支援多檔、追加、指定月份） */}
       <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
         <div className="flex flex-wrap items-center gap-3">
