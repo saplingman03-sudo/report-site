@@ -146,7 +146,7 @@ export default function App() {
   const [monthB, setMonthB] = useState<string | undefined>(monthSet[1] ?? monthSet[0]);
 
   // 上傳 Excel/CSV（可選擇：覆蓋/追加；可指定本批月份；支援多檔）
-  const onFiles = async (files: FileList | null) => {
+   const onFiles = async (files: FileList | null) => {
     if (!files || files.length===0) return;
 
     const parseOne = async (file: File): Promise<Row[]> => {
@@ -561,4 +561,4 @@ const fromCSV = (): Promise<Row[]> =>
     </div>
 
     );
-       } 
+                                                      { 
