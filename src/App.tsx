@@ -175,7 +175,6 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 
       const fromCSV = (): Promise<Row[]> =>
   new Promise<Row[]>((resolve, reject) => {
-    import Papa, { ParseResult } from "papaparse";
 
 const fromCSV = (): Promise<Row[]> =>
   new Promise((resolve, reject) => {
