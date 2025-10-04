@@ -228,7 +228,7 @@ const fromCSV = (): Promise<Row[]> =>
       setMonthA(months[0]);
       setMonthB(months[1] ?? months[0]);
     }
-  };
+  };)
 
   // ====== 選單資料 ======
   const agents = useMemo(()=>Array.from(new Set(rows.map(r=>r.代理商))),[rows]);
@@ -562,3 +562,4 @@ const fromCSV = (): Promise<Row[]> =>
 
 
 
+)
