@@ -412,7 +412,7 @@ const fromCSV = (): Promise<Row[]> =>
             </PieChart>
           </ResponsiveContainer>
         </div>
-
+    </div>
        {/* TopN 開分量（橫條） */}
 <div className="p-4 bg-white rounded-2xl border shadow-sm h-[380px] overflow-hidden">
   <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
