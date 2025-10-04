@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import Papa from "papaparse";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
   ComposedChart, Line, PieChart, Pie, Cell
@@ -18,7 +17,6 @@ type Row = {
   [key: string]: any; // 額外欄位（機台數量/備註/營業時間...）
 };
 
-type _SortKey = "代理商" | "商戶" | "開分量" | "營業額" | "比率";
 
 // ===================== Demo 資料（不上傳也能看） =====================
 const seed: Row[] = [
@@ -177,21 +175,24 @@ export default function App() {
 
       const fromCSV = (): Promise<Row[]> =>
   new Promise<Row[]>((resolve, reject) => {
+    import Papa, { ParseResult } from "papaparse";
+
+const fromCSV = (): Promise<Row[]> =>
+  new Promise((resolve, reject) => {
     Papa.parse<Row>(file, {
       header: true,
       skipEmptyLines: true,
-      dynamicTyping: true,     // 數字自動轉 number（可留可不留）
+      dynamicTyping: true,
       complete: (res: ParseResult<Row>) => {
-        const rows = (res.data as unknown as Row[])
+        const rows = res.data
           .map(toRow)
-          .filter((x) => x.代理商 && x.商戶);
+          .filter(x => x.代理商 && x.商戶);
         resolve(rows);
       },
-      error: (err) => {
-        reject(err);
-      },
+      error: (err) => reject(err),
     });
   });
+
 
       if (ext === "csv") return fromCSV();
       const buf = await file.arrayBuffer();
@@ -257,7 +258,6 @@ export default function App() {
   }),[filtered]);
 
   // ====== 圖表資料（依目前篩選） ======
-  const _pareto  = useParetoByMerchant(filtered);
   const hist    = useRatioHistogram(filtered, 0.05);
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
