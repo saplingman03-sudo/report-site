@@ -133,6 +133,10 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
   const [merchant, setMerchant] = useState("ALL");
   const [excludeAgent, setExcludeAgent] = useState("");
   const [topN, setTopN] = useState(10);
+  <select className="border rounded h-10 px-3 bg-white" value={topN} onChange={e=>setTopN(Number(e.target.value))}>
+  {[5,10,15,20].map(n => <option key={n} value={n}>Top {n}</option>)}
+</select>
+
 
   // 搜尋/排序/分頁（保持輕量，只做 TopN 與篩選）
   const [q, setQ] = useState("");
@@ -198,7 +202,7 @@ const fromCSV = (): Promise<Row[]> =>
       const ws = wb.Sheets[wb.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json<any>(ws, { raw: false });
       return json.map(toRow).filter(x=>x.代理商 && x.商戶);
-    }); // ← 收掉 parseOne
+    }; // ← 收掉 parseOne
 
     const batches: Row[][] = [];
     for (const f of Array.from(files)) {
@@ -412,31 +416,34 @@ const fromCSV = (): Promise<Row[]> =>
         </div>
     </div>
        {/* TopN 開分量（橫條） */}
-<div className="p-4 bg-white rounded-2xl border shadow-sm h-[380px] overflow-hidden">
+<div
+  className="p-4 bg-white rounded-2xl border shadow-sm overflow-hidden"
+  style={{ height: `${topN * 40 + 120}px` }}
+
+>
   <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
   <ResponsiveContainer width="100%" height="100%">
     <BarChart
       data={topOpen}
       layout="vertical"
-      margin={{ top: 20, right: 100, left: 100, bottom: 30 }} // ← 右/左邊多留空間
-      barCategoryGap={12}                                     // ← 長條之間留距離，避免擠在一起
+      margin={{ top: 20, right: 100, left: 100, bottom: 30 }}
+      barCategoryGap={12}
     >
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis
         type="number"
-        domain={[0, 'dataMax * 1.08']}                        // ← 右側留 8% 空間，不會貼邊
+        domain={[0, 'dataMax * 1.08']}
         tickFormatter={(v)=>money(Number(v))}
       />
-      <YAxis
-        type="category"
-        dataKey="商戶"
-        width={80}                                            // ← 左邊給足寬度，不會壓到條
-      />
+      <YAxis type="category" dataKey="商戶" width={80} />
       <Tooltip formatter={(v:any)=>money(Number(v))} />
       <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
     </BarChart>
   </ResponsiveContainer>
 </div>
+
+
+
 
 
       {/* ====== 月份對比（方便複製貼上） ====== */}
