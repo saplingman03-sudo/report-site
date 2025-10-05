@@ -173,25 +173,23 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
         };
       };
 
-      const fromCSV = (): Promise<Row[]> =>
-  new Promise<Row[]>((resolve, reject) => {
-    import Papa, { ParseResult } from "papaparse";
 
 const fromCSV = (): Promise<Row[]> =>
-  new Promise((resolve, reject) => {
-    Papa.parse<Row>(file, {
+  new Promise<Row[]>((resolve, reject) => {
+    Papa.parse<any>(file, {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
-      complete: (res: ParseResult<Row>) => {
-        const rows = res.data
+      complete: (res: ParseResult<any>) => {
+        const rows = (res.data as any[])
           .map(toRow)
           .filter(x => x.代理商 && x.商戶);
         resolve(rows);
       },
-      error: (err) => reject(err),
+      error: reject,
     });
   });
+
 
 
       if (ext === "csv") return fromCSV();
@@ -558,6 +556,6 @@ const fromCSV = (): Promise<Row[]> =>
         把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。
       </p>
     </div>
-  </div>   ){/* ← 這個是最外層容器的收尾 */}
-);          {/* ← 收掉 return ( */}
-}           {/* ← 收掉整個 function App */}
+    </div>
+  );
+}
