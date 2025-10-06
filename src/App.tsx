@@ -17,8 +17,6 @@ type Row = {
   [key: string]: any; // 額外欄位（機台數量/備註/營業時間...）
 };
 
-type SortKey = "代理商" | "商戶" | "開分量" | "營業額" | "比率";
-
 // ===================== Demo 資料（不上傳也能看） =====================
 const seed: Row[] = [
   { 月份: "2025-07", 代理商: "金傑克", 商戶: "萬豪",   開分量: 1200000, 營業額: 300000, 比率: 300000/1200000 },
@@ -245,7 +243,6 @@ export default function App() {
   }),[filtered]);
 
   // ====== 圖表資料（依目前篩選） ======
-  const pareto  = useParetoByMerchant(filtered);
   const hist    = useRatioHistogram(filtered, 0.05);
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
@@ -359,12 +356,12 @@ export default function App() {
 
       {/* 圖表群（加上 margin/dy 避免擋到刻度） */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[380px]">
-          <h2 className="font-semibold mb-2">各店開分量帕累托（含累積比例）</h2>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={useParetoByMerchant(filtered)} margin={{ right: 20, bottom: 30 }}>
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[500px]">
+          <h2 className="font-semibold mb-2">開分量帕累托（含累積比例）</h2>
+          <ResponsiveContainer width="100%" height="80%">
+            <ComposedChart data={useParetoByMerchant(filtered)} margin={{ top: 20, right: 20, bottom:5, left: 60 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="商戶" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="商戶" tick={{ fontSize: 16 }} />
               <YAxis yAxisId="left" tickFormatter={(v)=>money(Number(v))} />
               <YAxis yAxisId="right" orientation="right" domain={[0,100]} tickFormatter={(v)=>`${v}%`} />
               <Tooltip />
@@ -378,9 +375,9 @@ export default function App() {
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[320px]">
           <h2 className="font-semibold mb-2">營業額/開分量 分布（直方圖）</h2>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={hist} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+            <BarChart data={hist} margin={{ top: 30, right: 50, left: 100, bottom: 80 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="區間" tick={{ fontSize: 12 }} dy={10} />
+              <XAxis dataKey="區間" tick={{ fontSize: 13 }} dy={10} />
               <YAxis />
               <Tooltip />
               <Bar dataKey="數量" name="筆數" fill={BAR_COLOR} />
@@ -401,16 +398,22 @@ export default function App() {
           </ResponsiveContainer>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[380px]">
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[800px]">
           <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={topOpen} layout="vertical" margin={{left: 80, right: 20}}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" tickFormatter={(v)=>money(Number(v))} />
-              <YAxis type="category" dataKey="商戶" />
-              <Tooltip formatter={(v:any)=>money(Number(v))} />
-              <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
-            </BarChart>
+          <ResponsiveContainer width="80%" height="80%">
+            <BarChart
+  data={topOpen}
+  layout="vertical"
+  barCategoryGap="20%"                // ★ 移到這裡
+  margin={{ top: 10, right: 20, bottom: 20, left: 120 }}
+>
+  <CartesianGrid strokeDasharray="3 3" />
+  <XAxis type="number" tickFormatter={(v)=>money(Number(v))} />
+  <YAxis type="category" dataKey="商戶" interval={0} />
+  <Tooltip formatter={(v:any)=>money(Number(v))} />
+  <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
+</BarChart>
+
           </ResponsiveContainer>
         </div>
       </div>
@@ -533,4 +536,3 @@ export default function App() {
     </div>
   );
 }
-"123"
