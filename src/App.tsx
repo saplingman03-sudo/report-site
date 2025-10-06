@@ -1,12 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
   ComposedChart, Line, PieChart, Pie, Cell
 } from "recharts";
-import React, { useMemo, useState, useEffect } from "react";
-
 
 // ===================== 型別 =====================
 type Row = {
@@ -171,11 +169,10 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 
 // ===================== 主元件 =====================
 export default function App() {
-  // 讀取資料來源：優先網址 ?source= 再來環境變數 VITE_DATA_URL
-const sourceFromQuery = new URLSearchParams(location.search).get("source") || "";
-const DATA_URL = sourceFromQuery || (import.meta as any).env.VITE_DATA_URL || "";
-const isAdmin = new URLSearchParams(location.search).has("admin");
-  
+
+  // 原始資料（支援累積上傳）
+  const [rows, setRows] = useState<Row[]>(seed);
+
   // 讀取資料來源 & 管理者模式
   const params = new URLSearchParams(location.search);
   const DATA_URL =
@@ -185,18 +182,23 @@ const isAdmin = new URLSearchParams(location.search).has("admin");
   const isAdmin = params.has("admin");
 
   // 掛載時若有網址資料來源就自動載入
-  useEffect(()=>{
-    if (!DATA_URL) return;
-    const isCsv = /\.csv(\?|$)/i.test(DATA_URL);
-    (async ()=>{
+  useEffect(() => {
+  if (!DATA_URL) return;
+  const isCsv = /\.csv(\?|$)/i.test(DATA_URL);
+  (async () => {
+    try {
       const loaded = isCsv
         ? await loadFromCsvUrl(DATA_URL, "")
         : await loadFromJsonUrl(DATA_URL, "");
-      if (loaded.length){ setRows(loaded); }
-    })();
-  }, [DATA_URL]);
-  // 原始資料（支援累積上傳）
-  const [rows, setRows] = useState<Row[]>(seed);
+      if (loaded.length) setRows(loaded);
+    } catch (e) {
+      console.error("[DATA] 載入失敗", e);
+    }
+  })();
+}, [DATA_URL]);
+
+
+  
 
   // 篩選
   const [agent, setAgent] = useState("ALL");
@@ -380,18 +382,44 @@ const isAdmin = new URLSearchParams(location.search).has("admin");
       <h1 className="text-3xl font-bold">📊 開分量 / 營業額（多月累積與對比版）</h1>
 
       {/* 上傳區（支援多檔、追加、指定月份） */}
-      {isAdmin && (
-      <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <input type="file" accept=".csv,.xlsx,.xls" multiple onChange={e=>onFiles(e.target.files)} className="border rounded px-3 h-10 bg-white" />
-          <input placeholder="本批月份（例如：2025-07 或 2025年7月）若檔內無月份欄位則套用此值" value={batchMonth} onChange={e=>setBatchMonth(e.target.value)} className="border rounded px-3 h-10 w-[360px] bg-white" />
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={appendMode} onChange={e=>setAppendMode(e.target.checked)} /> 追加到現有資料（取消打勾＝覆蓋）
-          </label>
-          <button className="ml-auto border rounded h-10 px-3 bg-white" onClick={()=>{ setRows([]); setMonthA(undefined); setMonthB(undefined); }}>清空資料</button>
-        </div>
-        <p className="text-sm text-gray-500">提示：你也可以把 7 月與 8 月放在同一個 Excel，只要有「月份」欄位（或「日期/Month」），系統會自動辨識。</p>
-      </div>
+{isAdmin && (
+  <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
+    <div className="flex flex-wrap items-center gap-3">
+      <input
+  type="file"
+  accept=".csv,.xlsx,.xls"
+  multiple
+  onChange={(e) => onFiles(e.currentTarget.files)}
+  className="border rounded px-3 h-10 bg-white"
+/>
+
+      <input
+        placeholder="本批月份（例如：2025-07 或 2025年7月）若檔內無月份欄位則套用此值"
+        value={batchMonth}
+        onChange={e=>setBatchMonth(e.target.value)}
+        className="border rounded px-3 h-10 w-[360px] bg-white"
+      />
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={appendMode}
+          onChange={e=>setAppendMode(e.target.checked)}
+        />
+        追加到現有資料（取消打勾＝覆蓋）
+      </label>
+      <button
+        className="ml-auto border rounded h-10 px-3 bg-white"
+        onClick={()=>{ setRows([]); setMonthA(undefined); setMonthB(undefined); }}
+      >
+        清空資料
+      </button>
+    </div>
+    <p className="text-sm text-gray-500">
+      提示：你也可以把 7 月與 8 月放在同一個 Excel，只要有「月份」欄位（或「日期/Month」），系統會自動辨識。
+    </p>
+  </div>
+)}  {/* ← 這行就是少掉的 `)}` */}
+
 
       {/* 篩選 + 搜尋 + TopN */}
       <div className="flex flex-wrap items-center gap-3">
@@ -478,9 +506,8 @@ const isAdmin = new URLSearchParams(location.search).has("admin");
               <XAxis type="number" tickFormatter={(v)=>money(Number(v))} />
               <YAxis type="category" dataKey="商戶" />
               <Tooltip formatter={(v:any)=>money(Number(v))} />
-              <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} 
-
-            </BarChart>
+              <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
+</BarChart>
           </ResponsiveContainer>
         </div>
       </div>
