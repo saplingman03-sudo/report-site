@@ -1,10 +1,17 @@
 import React, { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+<<<<<<< HEAD
 import Papa from "papaparse";
+=======
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
   ComposedChart, Line, PieChart, Pie, Cell
 } from "recharts";
+<<<<<<< HEAD
+=======
+import Papa, { ParseResult } from "papaparse";
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
 // ===================== 型別 =====================
 type Row = {
@@ -17,7 +24,10 @@ type Row = {
   [key: string]: any; // 額外欄位（機台數量/備註/營業時間...）
 };
 
+<<<<<<< HEAD
 type SortKey = "代理商" | "商戶" | "開分量" | "營業額" | "比率";
+=======
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
 // ===================== Demo 資料（不上傳也能看） =====================
 const seed: Row[] = [
@@ -125,7 +135,11 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 }, [rows, n]);
 
 // ===================== 主元件 =====================
+<<<<<<< HEAD
 export default function App() {
+=======
+  export default function App() {
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
   // 原始資料（支援累積上傳）
   const [rows, setRows] = useState<Row[]>(seed);
 
@@ -134,6 +148,13 @@ export default function App() {
   const [merchant, setMerchant] = useState("ALL");
   const [excludeAgent, setExcludeAgent] = useState("");
   const [topN, setTopN] = useState(10);
+<<<<<<< HEAD
+=======
+  <select className="border rounded h-10 px-3 bg-white" value={topN} onChange={e=>setTopN(Number(e.target.value))}>
+  {[5,10,15,20].map(n => <option key={n} value={n}>Top {n}</option>)}
+</select>
+
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
   // 搜尋/排序/分頁（保持輕量，只做 TopN 與篩選）
   const [q, setQ] = useState("");
@@ -147,7 +168,11 @@ export default function App() {
   const [monthB, setMonthB] = useState<string | undefined>(monthSet[1] ?? monthSet[0]);
 
   // 上傳 Excel/CSV（可選擇：覆蓋/追加；可指定本批月份；支援多檔）
+<<<<<<< HEAD
   const onFiles = async (files: FileList | null) => {
+=======
+   const onFiles = async (files: FileList | null) => {
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
     if (!files || files.length===0) return;
 
     const parseOne = async (file: File): Promise<Row[]> => {
@@ -174,12 +199,33 @@ export default function App() {
         };
       };
 
+<<<<<<< HEAD
       const fromCSV = (): Promise<Row[]> => new Promise((resolve) => {
         Papa.parse(file, {
           header: true, skipEmptyLines: true,
           complete: (res) => resolve(((res.data as any[])||[]).map(toRow).filter(x=>x.代理商 && x.商戶))
         });
       });
+=======
+
+const fromCSV = (): Promise<Row[]> =>
+  new Promise<Row[]>((resolve, reject) => {
+    Papa.parse<any>(file, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      complete: (res: ParseResult<any>) => {
+        const rows = (res.data as any[])
+          .map(toRow)
+          .filter(x => x.代理商 && x.商戶);
+        resolve(rows);
+      },
+      error: reject,
+    });
+  });
+
+
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
       if (ext === "csv") return fromCSV();
       const buf = await file.arrayBuffer();
@@ -187,7 +233,11 @@ export default function App() {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const json = XLSX.utils.sheet_to_json<any>(ws, { raw: false });
       return json.map(toRow).filter(x=>x.代理商 && x.商戶);
+<<<<<<< HEAD
     };
+=======
+    }; // ← 收掉 parseOne
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
     const batches: Row[][] = [];
     for (const f of Array.from(files)) {
@@ -215,7 +265,11 @@ export default function App() {
       setMonthA(months[0]);
       setMonthB(months[1] ?? months[0]);
     }
+<<<<<<< HEAD
   };
+=======
+  }; // ← 這裡收掉 onFiles
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
   // ====== 選單資料 ======
   const agents = useMemo(()=>Array.from(new Set(rows.map(r=>r.代理商))),[rows]);
@@ -245,7 +299,10 @@ export default function App() {
   }),[filtered]);
 
   // ====== 圖表資料（依目前篩選） ======
+<<<<<<< HEAD
   const pareto  = useParetoByMerchant(filtered);
+=======
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
   const hist    = useRatioHistogram(filtered, 0.05);
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
@@ -309,8 +366,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen p-6 space-y-6 bg-slate-50">
+<<<<<<< HEAD
       <h1 className="text-3xl font-bold">📊 開分量 / 營業額（多月累積與對比版）</h1>
 
+=======
+      <h1 className="text-3xl font-bold">"📊 開分量 / 營業額（多月累積與對比版）"</h1>
+    
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
       {/* 上傳區（支援多檔、追加、指定月份） */}
       <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -400,6 +462,7 @@ export default function App() {
             </PieChart>
           </ResponsiveContainer>
         </div>
+<<<<<<< HEAD
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[380px]">
           <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
@@ -414,6 +477,39 @@ export default function App() {
           </ResponsiveContainer>
         </div>
       </div>
+=======
+    </div>
+       {/* TopN 開分量（橫條） */}
+<div
+  className="p-4 bg-white rounded-2xl border shadow-sm overflow-hidden"
+  style={{ height: `${topN * 40 + 120}px` }}
+
+>
+  <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
+  <ResponsiveContainer width="100%" height="100%">
+    <BarChart
+      data={topOpen}
+      layout="vertical"
+      margin={{ top: 20, right: 100, left: 100, bottom: 30 }}
+      barCategoryGap={12}
+    >
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis
+        type="number"
+        domain={[0, 'dataMax * 1.08']}
+        tickFormatter={(v)=>money(Number(v))}
+      />
+      <YAxis type="category" dataKey="商戶" width={80} />
+      <Tooltip formatter={(v:any)=>money(Number(v))} />
+      <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
+    </BarChart>
+  </ResponsiveContainer>
+</div>
+
+
+
+
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
 
       {/* ====== 月份對比（方便複製貼上） ====== */}
       <div className="p-4 bg-white rounded-2xl border shadow-sm">
@@ -521,6 +617,7 @@ export default function App() {
                 {"營業時間" in r && <td>{r["營業時間"]}</td>}
               </tr>
             ))}
+<<<<<<< HEAD
           </tbody>
         </table>
       </div>
@@ -530,6 +627,19 @@ export default function App() {
         <h3 className="font-semibold mb-1">部署小提示</h3>
         <p className="text-sm text-gray-600">把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。</p>
       </div>
+=======
+                  </tbody>
+      </table>
+    </div>
+
+    {/* 小提示：部署 */}
+    <div className="p-4 bg-white rounded-2xl border shadow-sm">
+      <h3 className="font-semibold mb-1">部署小提示</h3>
+      <p className="text-sm text-gray-600">
+        把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。
+      </p>
+    </div>
+>>>>>>> 14bd502daed6730d07d75235877e7f2206bef9f2
     </div>
   );
 }
