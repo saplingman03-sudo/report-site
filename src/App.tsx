@@ -5,6 +5,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ResponsiveContainer,
   ComposedChart, Line, PieChart, Pie, Cell
 } from "recharts";
+import React, { useMemo, useState, useEffect } from "react";
+
 
 // ===================== 型別 =====================
 type Row = {
@@ -40,6 +42,51 @@ const money = (n:number) => {
   if (a >= 10_000)   return (n/10_000).toFixed(2)+" 萬";
   return n.toLocaleString();
 };
+
+// 讓網址與上傳共用的轉換器
+const toRow = (r:any, batchMonth:string): Row => {
+  const agent = String(r["代理商"] ?? r["代理"] ?? r["Agent"] ?? "").trim();
+  const store = String(r["商戶"]   ?? r["Store"] ?? "").trim();
+  const open  = num(r["開分量"]     ?? r["開分"]   ?? r["Open"]);
+  const rev   = num(r["營業額"]     ?? r["Revenue"]?? r["Sales"]);
+  const ratioSrc = r["營業額/開分量"] ?? r["營業額/開分量百分比"] ?? r["Revenue/Open"] ?? r["ROI"] ?? "";
+  const raw = String(ratioSrc);
+  const ratio = raw === "" ? (open>0 ? rev/open : 0)
+               : raw.includes("%") ? num(raw)/100 : num(raw);
+  const machine = r["機台數量"] ?? r["機台"] ?? r["Machines"];
+  const note    = r["備註"]     ?? r["Remark"] ?? r["Note"];
+  const low25   = r["開分量低於25%"] ?? r["低於25%"];
+  const hours   = r["營業時間"] ?? r["Hours"];
+  const m = normalizeMonth(
+    r["月份"] ?? r["月"] ?? r["Month"] ?? r["日期"] ?? r["Date"] ?? batchMonth
+  );
+  return {
+    月份: m, 代理商: agent, 商戶: store, 開分量: open, 營業額: rev, 比率: ratio,
+    "機台數量": machine, "備註": note, "開分量低於25%": low25, "營業時間": hours
+  };
+};
+
+// 從「已發佈的 CSV 網址」載入
+async function loadFromCsvUrl(url:string, batchMonth:string) {
+  const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now());
+  const text = await res.text();
+  return new Promise<Row[]>((resolve)=>{
+    Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      complete: (r:any)=> resolve(((r.data as any[])||[])
+        .map(row => toRow(row, batchMonth))
+        .filter(x=>x.代理商 && x.商戶))
+    });
+  });
+}
+
+// 從「JSON 網址」載入（如果你改用 GitHub raw JSON 也可用）
+async function loadFromJsonUrl(url:string, batchMonth:string) {
+  const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now());
+  const arr = await res.json();
+  return (Array.isArray(arr)? arr: []).map((row:any)=> toRow(row, batchMonth))
+    .filter(x=>x.代理商 && x.商戶);
+}
 
 // 正規化月份字串（從欄位或使用者指定的本批月份）
 const normalizeMonth = (s?: string): string | undefined => {
@@ -124,6 +171,30 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 
 // ===================== 主元件 =====================
 export default function App() {
+  // 讀取資料來源：優先網址 ?source= 再來環境變數 VITE_DATA_URL
+const sourceFromQuery = new URLSearchParams(location.search).get("source") || "";
+const DATA_URL = sourceFromQuery || (import.meta as any).env.VITE_DATA_URL || "";
+const isAdmin = new URLSearchParams(location.search).has("admin");
+  
+  // 讀取資料來源 & 管理者模式
+  const params = new URLSearchParams(location.search);
+  const DATA_URL =
+    params.get("source") ||
+    (import.meta as any).env?.VITE_DATA_URL ||
+    "";
+  const isAdmin = params.has("admin");
+
+  // 掛載時若有網址資料來源就自動載入
+  useEffect(()=>{
+    if (!DATA_URL) return;
+    const isCsv = /\.csv(\?|$)/i.test(DATA_URL);
+    (async ()=>{
+      const loaded = isCsv
+        ? await loadFromCsvUrl(DATA_URL, "")
+        : await loadFromJsonUrl(DATA_URL, "");
+      if (loaded.length){ setRows(loaded); }
+    })();
+  }, [DATA_URL]);
   // 原始資料（支援累積上傳）
   const [rows, setRows] = useState<Row[]>(seed);
 
@@ -309,6 +380,7 @@ export default function App() {
       <h1 className="text-3xl font-bold">📊 開分量 / 營業額（多月累積與對比版）</h1>
 
       {/* 上傳區（支援多檔、追加、指定月份） */}
+      {isAdmin && (
       <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <input type="file" accept=".csv,.xlsx,.xls" multiple onChange={e=>onFiles(e.target.files)} className="border rounded px-3 h-10 bg-white" />
