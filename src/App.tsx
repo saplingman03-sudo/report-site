@@ -184,7 +184,9 @@ export default function App() {
   // 掛載時若有網址資料來源就自動載入
   useEffect(() => {
   if (!DATA_URL) return;
-  const isCsv = /\.csv(\?|$)/i.test(DATA_URL);
+  const isCsv =
+  /\.csv(\?|$)/i.test(DATA_URL) ||
+  /[?&](output|format)=csv\b/i.test(DATA_URL);
   (async () => {
     try {
       const loaded = isCsv
