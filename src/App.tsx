@@ -401,19 +401,14 @@ export default function App() {
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[800px]">
           <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
           <ResponsiveContainer width="80%" height="80%">
-            <BarChart
-  data={topOpen}
-  layout="vertical"
-  barCategoryGap="20%"                // ★ 移到這裡
-  margin={{ top: 10, right: 20, bottom: 20, left: 120 }}
->
-  <CartesianGrid strokeDasharray="3 3" />
-  <XAxis type="number" tickFormatter={(v)=>money(Number(v))} />
-  <YAxis type="category" dataKey="商戶" interval={0} />
-  <Tooltip formatter={(v:any)=>money(Number(v))} />
-  <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
-</BarChart>
+            <BarChart data={topOpen} layout="vertical" margin={{left: 80, right: 20}}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" tickFormatter={(v)=>money(Number(v))} />
+              <YAxis type="category" dataKey="商戶" />
+              <Tooltip formatter={(v:any)=>money(Number(v))} />
+              <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} 
 
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
