@@ -29,6 +29,9 @@ const seed: Row[] = [
 // ===================== 小工具 =====================
 const BAR_COLOR = "#8ec8ff"; // 一致的淺藍色長條
 
+const [monthFilter, setMonthFilter] = useState<string>("ALL");
+
+
 const num = (v:any) => {
   if (v===null || v===undefined || v==="") return 0;
   const n = Number(String(v).replace(/[\,\s%]/g,""));
@@ -232,6 +235,8 @@ export default function App() {
       const s = q.trim().toLowerCase();
       d = d.filter(r => r.代理商.toLowerCase().includes(s) || r.商戶.toLowerCase().includes(s));
     }
+    if (monthFilter!=="ALL") d = d.filter(r => r.月份 === monthFilter);
+
     return d;
   },[rows, agent, merchant, excludeAgent, q]);
 
@@ -337,6 +342,15 @@ export default function App() {
           {[5,10,15,20].map(n => <option key={n} value={n}>Top {n}</option>)}
         </select>
       </div>
+      <select
+  className="border rounded h-10 px-3 bg-white"
+  value={monthFilter}
+  onChange={e => setMonthFilter(e.target.value)}
+>
+  <option value="ALL">全部月份</option>
+  {monthSet.map(m => <option key={m} value={m}>{m}</option>)}
+</select>
+
 
       {/* KPI（依目前篩選） */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
