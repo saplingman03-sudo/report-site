@@ -199,6 +199,59 @@ export default function App() {
   })();
 }, [DATA_URL]);
 
+type SortKey = '月份' | '代理商' | '商戶' | '開分量' | '營業額' | '比例';
+
+// 先預設按「營業額 由大到小」
+const [sorter, setSorter] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
+  key: '營業額', dir: 'desc'
+});
+
+// 把「萬/百萬/億/%」這些字串轉成數值
+const coerceNumber = (v: any) => {
+  if (typeof v === 'number') return v;
+  if (v == null) return 0;
+  let s = String(v).replace(/,/g, '').trim();
+  // 百分比
+  if (s.endsWith('%')) return parseFloat(s.replace('%', '')) / 100;
+
+  let mult = 1;
+  if (s.includes('億')) mult = 1e8;
+  else if (s.includes('百萬')) mult = 1e6;
+  else if (s.includes('萬')) mult = 1e4;
+
+  s = s.replace(/[^\d.\-]/g, '');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n * mult : 0;
+};
+
+const getSortValue = (row: any, key: SortKey) => {
+  switch (key) {
+    case '月份':   return row.月份 ?? '';
+    case '代理商': return row.代理商 ?? '';
+    case '商戶':   return row.商戶 ?? '';
+    case '開分量': return coerceNumber(row.開分量);
+    case '營業額': return coerceNumber(row.營業額);
+    case '比例': {
+      // 你如果有 row.比率(0~1)，會先用；沒有就用 營業額/開分量 算
+      const r = typeof row.比率 === 'number'
+        ? row.比率
+        : coerceNumber(row.營業額) / Math.max(coerceNumber(row.開分量), 1e-9);
+      return r;
+    }
+  }
+};
+
+const toggleSort = (key: SortKey) => {
+  setSorter(prev =>
+    prev && prev.key === key
+      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: 'desc' } // 第一次點：由大到小
+  );
+};
+
+const SortIcon = ({ k }: { k: SortKey }) =>
+  sorter?.key !== k ? <span className="opacity-40 ml-1">↕</span>
+  : sorter.dir === 'asc' ? <span className="ml-1">▲</span> : <span className="ml-1">▼</span>;
 
   
 
@@ -310,6 +363,22 @@ export default function App() {
     return d;
   },[rows, agent, merchant, excludeAgent, q]);
 
+  const sortedRows = useMemo(() => {
+  const rows = [...filtered]; // 不要直接改 filtered
+  if (!sorter) return rows;
+  const { key, dir } = sorter;
+  return rows.sort((a, b) => {
+    const av = getSortValue(a, key);
+    const bv = getSortValue(b, key);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    return 0; // 相等時維持原順序
+  });
+}, [filtered, sorter]);
+
   // ====== KPI（依目前篩選） ======
   const kpi = useMemo(()=>({
     open: filtered.reduce((s,r)=>s+r.開分量,0),
@@ -379,6 +448,57 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, ws, "Compare");
     XLSX.writeFile(wb, `compare_${monthA}_vs_${monthB}.csv`);
   };
+
+  // 1) 先算總額，拿來算佔比
+const total = useMemo(
+  () => share.reduce((s, d) => s + Number(d.value || 0), 0),
+  [share]
+);
+
+// 2) 自訂 Tooltip 元件
+function CustomPieTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  const name = p?.name ?? p?.payload?.name ?? "";
+  const value = Number(p?.value ?? p?.payload?.value ?? 0);
+  // Recharts 會給 percent(0~1)；若沒有就自己算
+  const percent = (p?.percent ?? (total ? value / total : 0)) * 100;
+
+  return (
+    <div
+      style={{
+        pointerEvents: "none",
+        background: "rgba(0,0,0,0.75)",
+        color: "#fff",
+        padding: "6px 10px",
+        borderRadius: 8,
+        fontSize: 12,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+      }}
+    >
+      {/* 小色塊，對應該扇形顏色 */}
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          background: p?.fill || p?.color || "#999",
+          flex: "0 0 auto",
+        }}
+      />
+      <div>
+        <div style={{ fontWeight: 600 }}>{name}</div>
+        <div style={{ opacity: 0.9 }}>
+          {money(value)}（{percent.toFixed(2)}%）
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div className="min-h-screen p-6 space-y-6 bg-slate-50">
@@ -497,16 +617,22 @@ export default function App() {
   verticalAlign="middle"
   align="left"
   wrapperStyle={{ left: 0 }}
-  formatter={(name, entry) => {
-    const v = entry?.payload?.value ?? 0; // Pie 的原始值
+  formatter={(name: string, entry: any) => {
+    const v = Number(entry?.payload?.value ?? 0);
+    const pct = total ? (v / total) * 100 : 0;
     return (
-      <span style={{ display: 'inline-flex', gap: 8 }}>
+      <span style={{ display: "inline-flex", gap: 8 }}>
         <span>{name}</span>
-        <span style={{ opacity: 0.7 }}>{money(Number(v))}</span>
+        <span style={{ opacity: 0.8 }}>{money(v)}</span>
+        <span style={{ opacity: 0.6 }}>（{pct.toFixed(2)}%）</span>
       </span>
     );
   }}
 />
+
+  {/* 這個 Tooltip 就是你要的「滑到那一塊，旁邊顯示名稱/金額/佔比」 */}
+  <Tooltip content={<CustomPieTooltip />} offset={12} cursor={false} />
+
     <Pie
       data={share}
       dataKey="value"
@@ -514,7 +640,7 @@ export default function App() {
       cx="50%"                 // 往右移，避免和 Legend 重疊
       cy="40%"
       outerRadius="70%"
-      label
+      label={false}
       labelLine={false}
       paddingAngle={1}
     >
@@ -621,18 +747,28 @@ export default function App() {
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 bg-gray-100">
             <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-              <th>月份</th><th>代理商</th><th>商戶</th>
-              <th className="whitespace-nowrap">開分量</th>
-              <th className="whitespace-nowrap">營業額</th>
-              <th className="whitespace-nowrap">營業額/開分量</th>
-              {"機台數量" in (rows[0]||{}) && <th>機台數量</th>}
-              {"備註" in (rows[0]||{}) && <th>備註</th>}
-              {"開分量低於25%" in (rows[0]||{}) && <th>開分量低於25%</th>}
-              {"營業時間" in (rows[0]||{}) && <th>營業時間</th>}
+              <th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('月份')}>
+  月份 <SortIcon k="月份" />
+</th>
+<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('代理商')}>
+  代理商 <SortIcon k="代理商" />
+</th>
+<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('商戶')}>
+  商戶 <SortIcon k="商戶" />
+</th>
+<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('開分量')}>
+  開分量 <SortIcon k="開分量" />
+</th>
+<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('營業額')}>
+  營業額 <SortIcon k="營業額" />
+</th>
+<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('比例')}>
+  營業額/開分量 <SortIcon k="比例" />
+</th>
             </tr>
           </thead>
           <tbody className="[&>tr:nth-child(odd)]:bg-gray-50">
-            {filtered.map((r, i) => (
+            {sortedRows.map((r, i) => (
               <tr key={i} className="[&>td]:px-3 [&>td]:py-2">
                 <td>{r.月份 ?? "—"}</td>
                 <td>{r.代理商}</td>
@@ -650,11 +786,7 @@ export default function App() {
         </table>
       </div>
 
-      {/* 小提示：部署 */}
-      <div className="p-4 bg-white rounded-2xl border shadow-sm">
-        <h3 className="font-semibold mb-1">部署小提示</h3>
-        <p className="text-sm text-gray-600">把專案推到 GitHub，然後用 Vercel 一鍵部署。資料由使用者本地上傳，免後端。</p>
-      </div>
+      
     </div>
   );
 }
