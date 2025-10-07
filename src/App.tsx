@@ -584,7 +584,7 @@ function CustomPieTooltip({ active, payload }: any) {
           <ResponsiveContainer width="100%" height="80%">
             <ComposedChart data={useParetoByMerchant(filtered)} margin={{ top: 20, right: 20, bottom:5, left: 60 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="商戶" tick={{ fontSize: 13 }} />
+              <XAxis dataKey="商戶" tick={{ fontSize: 12 }} />
               <YAxis yAxisId="left" tickFormatter={(v)=>money(Number(v))} />
               <YAxis yAxisId="right" orientation="right" domain={[0,100]} tickFormatter={(v)=>`${v}%`} />
               <Tooltip />
