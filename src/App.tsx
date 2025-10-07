@@ -322,6 +322,14 @@ export default function App() {
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
   const pieColors = usePalette(share.length);
+  const shareTotal = useMemo(() => share.reduce((sum, item) => sum + item.value, 0), [share]);
+  const shareWithColor = useMemo(() => (
+    share.map((item, index) => ({
+      ...item,
+      color: pieColors[index % pieColors.length],
+      percent: shareTotal ? (item.value / shareTotal) * 100 : 0,
+    }))
+  ), [share, pieColors, shareTotal]);
 
   // ====== 對比表（選兩個月份，方便複製貼上） ======
   const compareRows = useMemo(()=>{
@@ -489,6 +497,91 @@ export default function App() {
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[400px]">
           <h2 className="font-semibold mb-2">代理商營業額占比</h2>
+          <@@ -300,50 +300,58 @@ export default function App() {
+  // ====== 篩選 + 搜尋 ======
+  const filtered = useMemo(()=>{
+    let d = rows;
+    if (agent!=="ALL") d = d.filter(r=>r.代理商===agent);
+    if (merchant!=="ALL") d = d.filter(r=>r.商戶===merchant);
+    if (excludeAgent.trim()) d = d.filter(r=>r.代理商!==excludeAgent.trim());
+    if (q.trim()) {
+      const s = q.trim().toLowerCase();
+      d = d.filter(r => r.代理商.toLowerCase().includes(s) || r.商戶.toLowerCase().includes(s));
+    }
+    return d;
+  },[rows, agent, merchant, excludeAgent, q]);
+
+  // ====== KPI（依目前篩選） ======
+  const kpi = useMemo(()=>({
+    open: filtered.reduce((s,r)=>s+r.開分量,0),
+    rev:  filtered.reduce((s,r)=>s+r.營業額,0),
+    ratio: filtered.length ? filtered.reduce((s,r)=>s+r.比率,0)/filtered.length : 0
+  }),[filtered]);
+
+  // ====== 圖表資料（依目前篩選） ======
+  const hist    = useRatioHistogram(filtered, 0.05);
+  const share   = useRevenueShareByAgent(filtered);
+  const topOpen = useTopOpenByMerchant(filtered, topN);
+  const pieColors = usePalette(share.length);
+  const shareTotal = useMemo(() => share.reduce((sum, item) => sum + item.value, 0), [share]);
+  const shareWithColor = useMemo(() => (
+    share.map((item, index) => ({
+      ...item,
+      color: pieColors[index % pieColors.length],
+      percent: shareTotal ? (item.value / shareTotal) * 100 : 0,
+    }))
+  ), [share, pieColors, shareTotal]);
+
+  // ====== 對比表（選兩個月份，方便複製貼上） ======
+  const compareRows = useMemo(()=>{
+    if (!monthA || !monthB) return [] as any[];
+    const A = rows.filter(r=>r.月份===monthA);
+    const B = rows.filter(r=>r.月份===monthB);
+    const keyFn = (r: Row) => keyJoin === "商戶" ? r.商戶 : `${r.代理商}__${r.商戶}`;
+    const mapA = new Map<string, Row>();
+    const mapB = new Map<string, Row>();
+    A.forEach(r=> mapA.set(keyFn(r), r));
+    B.forEach(r=> mapB.set(keyFn(r), r));
+    const keys = new Set<string>([...mapA.keys(), ...mapB.keys()]);
+    const out: any[] = [];
+    keys.forEach(k => {
+      const a = mapA.get(k); const b = mapB.get(k);
+      const 代理商 = a?.代理商 ?? b?.代理商 ?? "";
+      const 商戶 = a?.商戶 ?? b?.商戶 ?? "";
+      const 開A = a?.開分量 ?? 0; const 開B = b?.開分量 ?? 0;
+      const 營A = a?.營業額 ?? 0; const 營B = b?.營業額 ?? 0;
+      const 比A = a?.比率 ?? 0;   const 比B = b?.比率 ?? 0;
+      out.push({
+        代理商, 商戶,
+        [`開分量@${monthA}`]: 開A,
+        [`開分量@${monthB}`]: 開B,
+        "Δ開分量": 開B - 開A,
+@@ -467,59 +475,80 @@ export default function App() {
+              <YAxis yAxisId="left" tickFormatter={(v)=>money(Number(v))} />
+              <YAxis yAxisId="right" orientation="right" domain={[0,100]} tickFormatter={(v)=>`${v}%`} />
+              <Tooltip />
+              <Legend />
+              <Bar yAxisId="left" dataKey="開分量" name="開分量" fill={BAR_COLOR} />
+              <Line yAxisId="right" type="monotone" dataKey="累積比例" name="累積比例(%)" dot={false} strokeWidth={2} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[320px]">
+          <h2 className="font-semibold mb-2">營業額/開分量 分布（直方圖）</h2>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={hist} margin={{ top: 30, right: 50, left: 100, bottom: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="區間" tick={{ fontSize: 13 }} dy={10} />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="數量" name="筆數" fill={BAR_COLOR} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[400px]">
+          <h2 className="font-semibold mb-2">代理商營業額占比</h2>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Tooltip formatter={(v:any)=>money(Number(v))} />
@@ -498,6 +591,36 @@ export default function App() {
               </Pie>
             </PieChart>
           </ResponsiveContainer>
+          <div className="h-[calc(100%-2rem)] flex flex-col md:flex-row items-stretch gap-4">
+            <div className="md:w-1/2 h-64 md:h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip formatter={(v:any)=>money(Number(v))} />
+                  <Pie data={share} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius="70%" paddingAngle={1}>
+                    {share.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="md:w-1/2 overflow-auto">
+              <ul className="space-y-2 text-sm">
+                {shareWithColor.map((item) => (
+                  <li key={item.name} className="flex items-start gap-3">
+                    <span className="mt-1 w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <div className="flex-1">
+                      <p className="font-medium leading-tight">{item.name}</p>
+                      <p className="text-xs md:text-sm text-gray-500 leading-tight">
+                        {money(item.value)} ({item.percent.toFixed(1)}%)
+                      </p>
+                    </div>
+                  </li>
+                ))}
+                {!shareWithColor.length && (
+                  <li className="text-sm text-gray-500">目前沒有符合篩選條件的資料</li>
+                )}
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[800px]">
