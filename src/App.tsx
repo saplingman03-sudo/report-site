@@ -322,6 +322,14 @@ export default function App() {
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
   const pieColors = usePalette(share.length);
+  const shareTotal = useMemo(() => share.reduce((sum, item) => sum + item.value, 0), [share]);
+  const shareWithColor = useMemo(() => (
+    share.map((item, index) => ({
+      ...item,
+      color: pieColors[index % pieColors.length],
+      percent: shareTotal ? (item.value / shareTotal) * 100 : 0,
+    }))
+  ), [share, pieColors, shareTotal]);
 
   // ====== 對比表（選兩個月份，方便複製貼上） ======
   const compareRows = useMemo(()=>{
@@ -489,15 +497,36 @@ export default function App() {
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[400px]">
           <h2 className="font-semibold mb-2">代理商營業額占比</h2>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip formatter={(v:any)=>money(Number(v))} />
-              <Legend verticalAlign="bottom" />
-              <Pie data={share} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius="70%" label labelLine={false} paddingAngle={1}>
-                {share.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="h-[calc(100%-2rem)] flex flex-col md:flex-row items-stretch gap-4">
+            <div className="md:w-1/2 h-64 md:h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip formatter={(v:any)=>money(Number(v))} />
+                  <Pie data={share} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius="70%" paddingAngle={1}>
+                    {share.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="md:w-1/2 overflow-auto">
+              <ul className="space-y-2 text-sm">
+                {shareWithColor.map((item) => (
+                  <li key={item.name} className="flex items-start gap-3">
+                    <span className="mt-1 w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                    <div className="flex-1">
+                      <p className="font-medium leading-tight">{item.name}</p>
+                      <p className="text-xs md:text-sm text-gray-500 leading-tight">
+                        {money(item.value)} ({item.percent.toFixed(1)}%)
+                      </p>
+                    </div>
+                  </li>
+                ))}
+                {!shareWithColor.length && (
+                  <li className="text-sm text-gray-500">目前沒有符合篩選條件的資料</li>
+                )}
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[800px]">
