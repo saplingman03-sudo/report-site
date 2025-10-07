@@ -488,20 +488,45 @@ export default function App() {
           </ResponsiveContainer>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[400px]">
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[600px]">
           <h2 className="font-semibold mb-2">代理商營業額占比</h2>
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip formatter={(v:any)=>money(Number(v))} />
-              <Legend verticalAlign="bottom" />
-              <Pie data={share} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius="70%" label labelLine={false} paddingAngle={1}>
-                {share.map((_, i) => <Cell key={i} fill={pieColors[i % pieColors.length]} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 120 }}>
+    <Legend
+  layout="vertical"
+  verticalAlign="middle"
+  align="left"
+  wrapperStyle={{ left: 0 }}
+  formatter={(name, entry) => {
+    const v = entry?.payload?.value ?? 0; // Pie 的原始值
+    return (
+      <span style={{ display: 'inline-flex', gap: 8 }}>
+        <span>{name}</span>
+        <span style={{ opacity: 0.7 }}>{money(Number(v))}</span>
+      </span>
+    );
+  }}
+/>
+    <Pie
+      data={share}
+      dataKey="value"
+      nameKey="name"
+      cx="50%"                 // 往右移，避免和 Legend 重疊
+      cy="40%"
+      outerRadius="70%"
+      label
+      labelLine={false}
+      paddingAngle={1}
+    >
+      {share.map((_, i) => (
+        <Cell key={i} fill={pieColors[i % pieColors.length]} />
+      ))}
+    </Pie>
+  </PieChart>
+</ResponsiveContainer>
         </div>
 
-        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[800px]">
+        <div className="p-4 bg-white rounded-2xl border shadow-sm h-[600px]">
           <h2 className="font-semibold mb-2">開分量 Top {topN} 商戶</h2>
           <ResponsiveContainer width="80%" height="80%">
             <BarChart data={topOpen} layout="vertical" margin={{left: 80, right: 20}}>
