@@ -235,9 +235,6 @@ export default function App() {
   }, [rows]);
 
   
-    setSelectedMonths(prev =>
-      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
-    );
   const pickAll  = () => setSelectedMonths(allMonths);
   const clearAll = () => setSelectedMonths([]);
   const quickPick = (n: number) => setSelectedMonths(allMonths.slice(-n)); // 最近 n 個月
