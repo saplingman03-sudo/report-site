@@ -295,6 +295,22 @@ export default function App() {
   const [excludeAgent, setExcludeAgent] = useState("");
   const [topN, setTopN] = useState(10);
 
+  // 支援多個代理商（逗號或空白分隔）：例「金傑克, 國正 阿峰」
+const excludeSet = useMemo(() => {
+  return new Set(
+    excludeAgent
+      .split(/[,\s]+/)          // 逗號或空白切
+      .map(s => s.trim())
+      .filter(Boolean)
+  );
+}, [excludeAgent]);
+
+// 共用：這筆資料是否通過「排除代理商」檢查
+const passExclude = React.useCallback(
+  (r: Row) => excludeSet.size === 0 || !excludeSet.has(r.代理商),
+  [excludeSet]
+);
+
   // 搜尋
   const [q, setQ] = useState("");
 
@@ -392,7 +408,8 @@ export default function App() {
     }
     if (agent!=="ALL") d = d.filter(r=>r.代理商===agent);
     if (merchant!=="ALL") d = d.filter(r=>r.商戶===merchant);
-    if (excludeAgent.trim()) d = d.filter(r=>r.代理商!==excludeAgent.trim());
+    if (excludeSet.size) d = d.filter(passExclude);
+
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       d = d.filter(r => r.代理商.toLowerCase().includes(s) || r.商戶.toLowerCase().includes(s));
@@ -429,11 +446,18 @@ export default function App() {
   const topOpen = useTopOpenByMerchant(filtered, topN);
   const pieColors = usePalette(share.length);
 
+  // 對比用的基礎資料（已套用「排除代理商」）
+const baseRowsForCompare = useMemo(
+  () => rows.filter(passExclude),
+  [rows, passExclude]
+);
+
+
   // 對比表
   const compareRows = useMemo(()=>{
     if (!monthA || !monthB) return [] as any[];
-    const A = rows.filter(r=>r.月份===monthA);
-    const B = rows.filter(r=>r.月份===monthB);
+    const A = baseRowsForCompare.filter(r=>r.月份===monthA);
+const B = baseRowsForCompare.filter(r=>r.月份===monthB);
     const keyFn = (r: Row) => keyJoin === "商戶" ? r.商戶 : `${r.代理商}__${r.商戶}`;
     const mapA = new Map<string, Row>();
     const mapB = new Map<string, Row>();
@@ -718,11 +742,22 @@ export default function App() {
         {monthA && monthB && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {(() => {
-              const sum = (m?:string, f:(r:Row)=>number= r=>r.營業額)=> rows.filter(r=>r.月份===m).reduce((s,r)=>s+f(r),0);
-              const openA = sum(monthA, r=>r.開分量), openB = sum(monthB, r=>r.開分量);
-              const revA  = sum(monthA, r=>r.營業額), revB  = sum(monthB, r=>r.營業額);
-              const ratioA = (()=>{ const arr=rows.filter(r=>r.月份===monthA); return arr.length? arr.reduce((s,r)=>s+r.比率,0)/arr.length:0;})()
-              const ratioB = (()=>{ const arr=rows.filter(r=>r.月份===monthB); return arr.length? arr.reduce((s,r)=>s+r.比率,0)/arr.length:0;})()
+              const sum = (m?:string, f:(r:Row)=>number = r=>r.營業額) =>
+  baseRowsForCompare.filter(r=>r.月份===m).reduce((s,r)=>s+f(r),0);
+
+const openA = sum(monthA, r=>r.開分量), openB = sum(monthB, r=>r.開分量);
+const revA  = sum(monthA, r=>r.營業額), revB  = sum(monthB, r=>r.營業額);
+
+const ratioA = (() => {
+  const arr = baseRowsForCompare.filter(r=>r.月份===monthA);
+  return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
+})();
+
+const ratioB = (() => {
+  const arr = baseRowsForCompare.filter(r=>r.月份===monthB);
+  return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
+})();
+
               return (
                 <>
                   <div className="p-4 bg-white rounded-2xl border shadow-sm">
