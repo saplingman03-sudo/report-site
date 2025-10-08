@@ -234,7 +234,7 @@ export default function App() {
     return m;
   }, [rows]);
 
-  const toggleMonth = (m: string) =>
+  
     setSelectedMonths(prev =>
       prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
     );
