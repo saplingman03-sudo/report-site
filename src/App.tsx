@@ -201,6 +201,48 @@ export default function App() {
 
 type SortKey = '月份' | '代理商' | '商戶' | '開分量' | '營業額' | '比例';
 
+// 轉成 YYYY-MM（支援 2025-8 -> 2025-08）
+const normMonth = (m: any) => {
+  if (m == null) return '';
+  const s = String(m).trim();
+  const [y, raw] = s.split('-');
+  if (!y || !raw) return s;
+  const mm = String(raw).padStart(2, '0');
+  return `${y}-${mm}`;
+};
+
+// 依資料自動蒐集所有月份（升冪）
+const allMonths = useMemo(
+  () => Array.from(new Set(rows.map((r: any) => normMonth(r.月份)))).sort(),
+  [rows]
+);
+
+// 多選月份（預設：全部勾選）
+const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+useEffect(() => {
+  if (allMonths.length && selectedMonths.length === 0) {
+    setSelectedMonths(allMonths);
+  }
+}, [allMonths, selectedMonths.length]);
+
+// 顯示每個月份有幾筆（可省略）
+const monthCounts = useMemo(() => {
+  const m: Record<string, number> = {};
+  rows.forEach((r: any) => {
+    const k = normMonth(r.月份);
+    m[k] = (m[k] || 0) + 1;
+  });
+  return m;
+}, [rows]);
+
+const toggleMonth = (m: string) =>
+  setSelectedMonths(prev =>
+    prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
+  );
+const pickAll  = () => setSelectedMonths(allMonths);
+const clearAll = () => setSelectedMonths([]);
+const quickPick = (n: number) => setSelectedMonths(allMonths.slice(-n)); // 最近 n 個月
+
 // 先預設按「營業額 由大到小」
 const [sorter, setSorter] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
   key: '營業額', dir: 'desc'
@@ -353,6 +395,13 @@ const SortIcon = ({ k }: { k: SortKey }) =>
   // ====== 篩選 + 搜尋 ======
   const filtered = useMemo(()=>{
     let d = rows;
+
+
+  // 月份鎖定（若不是全選才過濾）
+    if (selectedMonths.length && selectedMonths.length !== allMonths.length) {
+    const set = new Set(selectedMonths);
+    d = d.filter((r: any) => set.has(normMonth(r.月份)));
+  }
     if (agent!=="ALL") d = d.filter(r=>r.代理商===agent);
     if (merchant!=="ALL") d = d.filter(r=>r.商戶===merchant);
     if (excludeAgent.trim()) d = d.filter(r=>r.代理商!==excludeAgent.trim());
@@ -711,7 +760,8 @@ function CustomPieTooltip({ active, payload }: any) {
                   </div>
                 </>
               );
-            })()}
+            })()}pnpm add -D @types/react@^18 @types/react-dom@^18
+
           </div>
         )}
 
@@ -740,6 +790,33 @@ function CustomPieTooltip({ active, payload }: any) {
           </table>
         </div>
       </div>
+
+      <div className="mb-3">
+  <div className="text-sm font-semibold mb-2">鎖定月份</div>
+  <div className="flex flex-wrap gap-2 items-center">
+    <button onClick={pickAll}
+      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">全部</button>
+    <button onClick={() => quickPick(1)}
+      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">最近1個月</button>
+    <button onClick={() => quickPick(3)}
+      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">最近3個月</button>
+    <button onClick={clearAll}
+      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">清空</button>
+
+    {allMonths.map(m => {
+      const active = selectedMonths.includes(m);
+      return (
+        <button key={m} onClick={() => toggleMonth(m)}
+          className={`px-2 py-1 rounded border text-sm ${
+            active ? 'bg-blue-600 text-white border-blue-600'
+                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+          }`}>
+          {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ''}
+        </button>
+      );
+    })}
+  </div>
+</div>
 
       {/* 明細表（單月/多月混合視圖） */}
       <div className="p-4 bg-white rounded-2xl border shadow-sm overflow-auto">
@@ -770,7 +847,7 @@ function CustomPieTooltip({ active, payload }: any) {
           <tbody className="[&>tr:nth-child(odd)]:bg-gray-50">
             {sortedRows.map((r, i) => (
               <tr key={i} className="[&>td]:px-3 [&>td]:py-2">
-                <td>{r.月份 ?? "—"}</td>
+                <td>{normMonth(r.月份) || '-'}</td>
                 <td>{r.代理商}</td>
                 <td>{r.商戶}</td>
                 <td>{money(r.開分量)}</td>
