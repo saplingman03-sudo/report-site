@@ -500,6 +500,7 @@ function CustomPieTooltip({ active, payload }: any) {
 }
 
 
+
   return (
     <div className="min-h-screen p-6 space-y-6 bg-slate-50">
       <h1 className="text-3xl font-bold">📊 開分量 / 營業額（多月累積與對比版）</h1>
@@ -745,7 +746,7 @@ function CustomPieTooltip({ active, payload }: any) {
       <div className="p-4 bg-white rounded-2xl border shadow-sm overflow-auto">
         <h2 className="font-semibold mb-3">明細表</h2>
         <table className="min-w-full text-sm">
-          <thead className="sticky top-0 bg-gray-100">
+          <thead className="sticky top-0 z-20 relative bg-white">
             <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
               <th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('月份')}>
   月份 <SortIcon k="月份" />
