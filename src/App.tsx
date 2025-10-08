@@ -824,27 +824,64 @@ function CustomPieTooltip({ active, payload }: any) {
         <h2 className="font-semibold mb-3">明細表</h2>
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-20 relative bg-white">
-            <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-              <th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('月份')}>
-  月份 <SortIcon k="月份" />
-</th>
-<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('代理商')}>
-  代理商 <SortIcon k="代理商" />
-</th>
-<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('商戶')}>
-  商戶 <SortIcon k="商戶" />
-</th>
-<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('開分量')}>
-  開分量 <SortIcon k="開分量" />
-</th>
-<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('營業額')}>
-  營業額 <SortIcon k="營業額" />
-</th>
-<th className="whitespace-nowrap cursor-pointer select-none" onClick={() => toggleSort('比例')}>
-  營業額/開分量 <SortIcon k="比例" />
-</th>
-            </tr>
-          </thead>
+  <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
+    {/* 每個欄位用 <button> 包住，確保一定吃到 click */}
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('月份')}
+      >
+        月份 <SortIcon k="月份" />
+      </button>
+    </th>
+
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('代理商')}
+      >
+        代理商 <SortIcon k="代理商" />
+      </button>
+    </th>
+
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('商戶')}
+      >
+        商戶 <SortIcon k="商戶" />
+      </button>
+    </th>
+
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('開分量')}
+      >
+        開分量 <SortIcon k="開分量" />
+      </button>
+    </th>
+
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('營業額')}
+      >
+        營業額 <SortIcon k="營業額" />
+      </button>
+    </th>
+
+    <th>
+      <button type="button"
+        className="flex items-center gap-1 cursor-pointer select-none"
+        onClick={() => toggleSort('比例')}
+      >
+        營業額/開分量 <SortIcon k="比例" />
+      </button>
+    </th>
+  </tr>
+</thead>
+
           <tbody className="[&>tr:nth-child(odd)]:bg-gray-50">
             {sortedRows.map((r, i) => (
               <tr key={i} className="[&>td]:px-3 [&>td]:py-2">
