@@ -78,7 +78,7 @@ async function loadFromCsvUrl(url:string, batchMonth:string) {
   });
 }
 
-// 從「JSON 網址」載入（如果你改用 GitHub raw JSON 也可用）
+// 從「JSON 網址」載入
 async function loadFromJsonUrl(url:string, batchMonth:string) {
   const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now());
   const arr = await res.json();
@@ -86,11 +86,10 @@ async function loadFromJsonUrl(url:string, batchMonth:string) {
     .filter(x=>x.代理商 && x.商戶);
 }
 
-// 正規化月份字串（從欄位或使用者指定的本批月份）
+// 正規化月份字串
 const normalizeMonth = (s?: string): string | undefined => {
   if (!s) return undefined;
   const t = String(s).trim();
-  // 支援 "2025-07"、"2025/07"、"2025.07"、"Jul 2025"、"2025年7月"、"7月"（會自動補今年）
   const m1 = t.match(/(20\d{2})[\-/\.年]?(\d{1,2})/);
   if (m1) {
     const y = m1[1];
@@ -106,7 +105,7 @@ const normalizeMonth = (s?: string): string | undefined => {
   return undefined;
 };
 
-// 自動產生 HSL 配色（Pie/多系列用）
+// 自動配色
 const usePalette = (count: number) => React.useMemo(() => {
   const res: string[] = [];
   for (let i=0; i<count; i++) {
@@ -116,7 +115,7 @@ const usePalette = (count: number) => React.useMemo(() => {
   return res;
 }, [count]);
 
-// ===================== 統計 hooks（依目前篩選結果） =====================
+// ===================== 統計 hooks =====================
 const useParetoByMerchant = (rows: Row[]) => React.useMemo(() => {
   const m = new Map<string, number>();
   rows.forEach(r => m.set(r.商戶, (m.get(r.商戶) ?? 0) + r.開分量));
@@ -183,119 +182,115 @@ export default function App() {
 
   // 掛載時若有網址資料來源就自動載入
   useEffect(() => {
-  if (!DATA_URL) return;
-  const isCsv =
-  /\.csv(\?|$)/i.test(DATA_URL) ||
-  /[?&](output|format)=csv\b/i.test(DATA_URL);
-  (async () => {
-    try {
-      const loaded = isCsv
-        ? await loadFromCsvUrl(DATA_URL, "")
-        : await loadFromJsonUrl(DATA_URL, "");
-      if (loaded.length) setRows(loaded);
-    } catch (e) {
-      console.error("[DATA] 載入失敗", e);
+    if (!DATA_URL) return;
+    const isCsv =
+      /\.csv(\?|$)/i.test(DATA_URL) ||
+      /[?&](output|format)=csv\b/i.test(DATA_URL);
+    (async () => {
+      try {
+        const loaded = isCsv
+          ? await loadFromCsvUrl(DATA_URL, "")
+          : await loadFromJsonUrl(DATA_URL, "");
+        if (loaded.length) setRows(loaded);
+      } catch (e) {
+        console.error("[DATA] 載入失敗", e);
+      }
+    })();
+  }, [DATA_URL]);
+
+  type SortKey = '月份' | '代理商' | '商戶' | '開分量' | '營業額' | '比例';
+
+  // 轉成 YYYY-MM（支援 2025-8 -> 2025-08）
+  const normMonth = (m: any) => {
+    if (m == null) return '';
+    const s = String(m).trim();
+    const [y, raw] = s.split('-');
+    if (!y || !raw) return s;
+    const mm = String(raw).padStart(2, '0');
+    return `${y}-${mm}`;
+  };
+
+  // 依資料自動蒐集所有月份（升冪）
+  const allMonths = useMemo(
+    () => Array.from(new Set(rows.map((r: any) => normMonth(r.月份)))).sort(),
+    [rows]
+  );
+
+  // 多選月份（預設：全部勾選）
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  useEffect(() => {
+    if (allMonths.length && selectedMonths.length === 0) {
+      setSelectedMonths(allMonths);
     }
-  })();
-}, [DATA_URL]);
+  }, [allMonths, selectedMonths.length]);
 
-type SortKey = '月份' | '代理商' | '商戶' | '開分量' | '營業額' | '比例';
+  // 顯示每個月份有幾筆（可省略）
+  const monthCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    rows.forEach((r: any) => {
+      const k = normMonth(r.月份);
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }, [rows]);
 
-// 轉成 YYYY-MM（支援 2025-8 -> 2025-08）
-const normMonth = (m: any) => {
-  if (m == null) return '';
-  const s = String(m).trim();
-  const [y, raw] = s.split('-');
-  if (!y || !raw) return s;
-  const mm = String(raw).padStart(2, '0');
-  return `${y}-${mm}`;
-};
+  const toggleMonth = (m: string) =>
+    setSelectedMonths(prev =>
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
+    );
+  const pickAll  = () => setSelectedMonths(allMonths);
+  const clearAll = () => setSelectedMonths([]);
+  const quickPick = (n: number) => setSelectedMonths(allMonths.slice(-n)); // 最近 n 個月
 
-// 依資料自動蒐集所有月份（升冪）
-const allMonths = useMemo(
-  () => Array.from(new Set(rows.map((r: any) => normMonth(r.月份)))).sort(),
-  [rows]
-);
-
-// 多選月份（預設：全部勾選）
-const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-useEffect(() => {
-  if (allMonths.length && selectedMonths.length === 0) {
-    setSelectedMonths(allMonths);
-  }
-}, [allMonths, selectedMonths.length]);
-
-// 顯示每個月份有幾筆（可省略）
-const monthCounts = useMemo(() => {
-  const m: Record<string, number> = {};
-  rows.forEach((r: any) => {
-    const k = normMonth(r.月份);
-    m[k] = (m[k] || 0) + 1;
+  // 先預設按「營業額 由大到小」
+  const [sorter, setSorter] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
+    key: '營業額', dir: 'desc'
   });
-  return m;
-}, [rows]);
 
-const toggleMonth = (m: string) =>
-  setSelectedMonths(prev =>
-    prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
-  );
-const pickAll  = () => setSelectedMonths(allMonths);
-const clearAll = () => setSelectedMonths([]);
-const quickPick = (n: number) => setSelectedMonths(allMonths.slice(-n)); // 最近 n 個月
+  // 把「萬/百萬/億/%」這些字串轉成數值
+  const coerceNumber = (v: any) => {
+    if (typeof v === 'number') return v;
+    if (v == null) return 0;
+    let s = String(v).replace(/,/g, '').trim();
+    if (s.endsWith('%')) return parseFloat(s.replace('%', '')) / 100;
 
-// 先預設按「營業額 由大到小」
-const [sorter, setSorter] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
-  key: '營業額', dir: 'desc'
-});
+    let mult = 1;
+    if (s.includes('億')) mult = 1e8;
+    else if (s.includes('百萬')) mult = 1e6;
+    else if (s.includes('萬')) mult = 1e4;
 
-// 把「萬/百萬/億/%」這些字串轉成數值
-const coerceNumber = (v: any) => {
-  if (typeof v === 'number') return v;
-  if (v == null) return 0;
-  let s = String(v).replace(/,/g, '').trim();
-  // 百分比
-  if (s.endsWith('%')) return parseFloat(s.replace('%', '')) / 100;
+    s = s.replace(/[^\d.\-]/g, '');
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n * mult : 0;
+  };
 
-  let mult = 1;
-  if (s.includes('億')) mult = 1e8;
-  else if (s.includes('百萬')) mult = 1e6;
-  else if (s.includes('萬')) mult = 1e4;
-
-  s = s.replace(/[^\d.\-]/g, '');
-  const n = parseFloat(s);
-  return Number.isFinite(n) ? n * mult : 0;
-};
-
-const getSortValue = (row: any, key: SortKey) => {
-  switch (key) {
-    case '月份':   return row.月份 ?? '';
-    case '代理商': return row.代理商 ?? '';
-    case '商戶':   return row.商戶 ?? '';
-    case '開分量': return coerceNumber(row.開分量);
-    case '營業額': return coerceNumber(row.營業額);
-    case '比例': {
-      // 你如果有 row.比率(0~1)，會先用；沒有就用 營業額/開分量 算
-      const r = typeof row.比率 === 'number'
-        ? row.比率
-        : coerceNumber(row.營業額) / Math.max(coerceNumber(row.開分量), 1e-9);
-      return r;
+  const getSortValue = (row: any, key: SortKey) => {
+    switch (key) {
+      case '月份':   return row.月份 ?? '';
+      case '代理商': return row.代理商 ?? '';
+      case '商戶':   return row.商戶 ?? '';
+      case '開分量': return coerceNumber(row.開分量);
+      case '營業額': return coerceNumber(row.營業額);
+      case '比例': {
+        const r = typeof row.比率 === 'number'
+          ? row.比率
+          : coerceNumber(row.營業額) / Math.max(coerceNumber(row.開分量), 1e-9);
+        return r;
+      }
     }
-  }
-};
+  };
 
-const toggleSort = (key: SortKey) => {
-  setSorter(prev =>
-    prev && prev.key === key
-      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: 'desc' } // 第一次點：由大到小
-  );
-};
+  const toggleSort = (key: SortKey) => {
+    setSorter(prev =>
+      prev && prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'desc' }
+    );
+  };
 
-const SortIcon = ({ k }: { k: SortKey }) =>
-  sorter?.key !== k ? <span className="opacity-40 ml-1">↕</span>
-  : sorter.dir === 'asc' ? <span className="ml-1">▲</span> : <span className="ml-1">▼</span>;
-
-  
+  const SortIcon = ({ k }: { k: SortKey }) =>
+    sorter?.key !== k ? <span className="opacity-40 ml-1">↕</span>
+    : sorter.dir === 'asc' ? <span className="ml-1">▲</span> : <span className="ml-1">▼</span>;
 
   // 篩選
   const [agent, setAgent] = useState("ALL");
@@ -303,18 +298,18 @@ const SortIcon = ({ k }: { k: SortKey }) =>
   const [excludeAgent, setExcludeAgent] = useState("");
   const [topN, setTopN] = useState(10);
 
-  // 搜尋/排序/分頁（保持輕量，只做 TopN 與篩選）
+  // 搜尋
   const [q, setQ] = useState("");
 
-  // ===== 新增："多月累積 & 對比" 控制 =====
+  // 多月累積 & 對比
   const monthSet = useMemo(()=> Array.from(new Set(rows.map(r=>r.月份).filter(Boolean))) as string[], [rows]);
-  const [appendMode, setAppendMode] = useState(true); // 勾選 = 追加。不勾 = 覆蓋
-  const [batchMonth, setBatchMonth] = useState(""); // 使用者指定：本批月份（若檔案內沒有"月份"欄位時使用）
+  const [appendMode, setAppendMode] = useState(true);
+  const [batchMonth, setBatchMonth] = useState("");
   const [keyJoin, setKeyJoin] = useState<"代理商+商戶" | "商戶">("代理商+商戶");
   const [monthA, setMonthA] = useState<string | undefined>(monthSet[0]);
   const [monthB, setMonthB] = useState<string | undefined>(monthSet[1] ?? monthSet[0]);
 
-  // 上傳 Excel/CSV（可選擇：覆蓋/追加；可指定本批月份；支援多檔）
+  // 上傳 Excel/CSV
   const onFiles = async (files: FileList | null) => {
     if (!files || files.length===0) return;
 
@@ -359,7 +354,6 @@ const SortIcon = ({ k }: { k: SortKey }) =>
 
     const batches: Row[][] = [];
     for (const f of Array.from(files)) {
-      // 若未指定月份且檔案內也找不到月份，將試圖從檔名推斷
       if (!batchMonth) {
         const fromName = normalizeMonth(f.name);
         if (fromName) setBatchMonth(v=> v || fromName);
@@ -368,7 +362,6 @@ const SortIcon = ({ k }: { k: SortKey }) =>
       batches.push(rowsOne);
     }
 
-    // 沒有月份就用 batchMonth（若 batchMonth 也沒填，就標記為 "未指定"）
     const merged = batches.flat().map(r => ({
       ...r,
       月份: r.月份 ?? normalizeMonth(batchMonth) ?? "未指定",
@@ -377,7 +370,6 @@ const SortIcon = ({ k }: { k: SortKey }) =>
     if (appendMode) setRows(prev => [...prev, ...merged]);
     else setRows(merged);
 
-    // 更新月份選單預設
     const months = Array.from(new Set(merged.map(r=>r.月份))).filter(Boolean) as string[];
     if (months.length) {
       setMonthA(months[0]);
@@ -385,23 +377,22 @@ const SortIcon = ({ k }: { k: SortKey }) =>
     }
   };
 
-  // ====== 選單資料 ======
+  // 選單資料
   const agents = useMemo(()=>Array.from(new Set(rows.map(r=>r.代理商))),[rows]);
   const merchants = useMemo(()=>{
     const base = agent==="ALL" ? rows : rows.filter(r=>r.代理商===agent);
     return Array.from(new Set(base.map(r=>r.商戶)));
   },[rows, agent]);
 
-  // ====== 篩選 + 搜尋 ======
+  // 篩選 + 搜尋
   const filtered = useMemo(()=>{
     let d = rows;
 
-
-  // 月份鎖定（若不是全選才過濾）
+    // 月份鎖定（若不是全選才過濾）
     if (selectedMonths.length && selectedMonths.length !== allMonths.length) {
-    const set = new Set(selectedMonths);
-    d = d.filter((r: any) => set.has(normMonth(r.月份)));
-  }
+      const set = new Set(selectedMonths);
+      d = d.filter((r: any) => set.has(normMonth(r.月份)));
+    }
     if (agent!=="ALL") d = d.filter(r=>r.代理商===agent);
     if (merchant!=="ALL") d = d.filter(r=>r.商戶===merchant);
     if (excludeAgent.trim()) d = d.filter(r=>r.代理商!==excludeAgent.trim());
@@ -410,39 +401,38 @@ const SortIcon = ({ k }: { k: SortKey }) =>
       d = d.filter(r => r.代理商.toLowerCase().includes(s) || r.商戶.toLowerCase().includes(s));
     }
     return d;
-  },[rows, agent, merchant, excludeAgent, q]);
+  }, [rows, agent, merchant, excludeAgent, q, selectedMonths, allMonths]);
 
   const sortedRows = useMemo(() => {
-  const rows = [...filtered]; // 不要直接改 filtered
-  if (!sorter) return rows;
-  const { key, dir } = sorter;
-  return rows.sort((a, b) => {
-    const av = getSortValue(a, key);
-    const bv = getSortValue(b, key);
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    if (av > bv) return dir === 'asc' ? 1 : -1;
-    if (av < bv) return dir === 'asc' ? -1 : 1;
-    return 0; // 相等時維持原順序
-  });
-}, [filtered, sorter]);
+    const rowsX = [...filtered];
+    if (!sorter) return rowsX;
+    const { key, dir } = sorter;
+    return rowsX.sort((a, b) => {
+      const av = getSortValue(a, key);
+      const bv = getSortValue(b, key);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (av > bv) return dir === 'asc' ? 1 : -1;
+      if (av < bv) return dir === 'asc' ? -1 : 1;
+      return 0;
+    });
+  }, [filtered, sorter]);
 
-  // ====== KPI（依目前篩選） ======
+  // KPI
   const kpi = useMemo(()=>({
     open: filtered.reduce((s,r)=>s+r.開分量,0),
     rev:  filtered.reduce((s,r)=>s+r.營業額,0),
     ratio: filtered.length ? filtered.reduce((s,r)=>s+r.比率,0)/filtered.length : 0
   }),[filtered]);
 
-  // ====== 圖表資料（依目前篩選） ======
+  // 圖表資料
   const hist    = useRatioHistogram(filtered, 0.05);
   const share   = useRevenueShareByAgent(filtered);
   const topOpen = useTopOpenByMerchant(filtered, topN);
   const pieColors = usePalette(share.length);
-  
 
-  // ====== 對比表（選兩個月份，方便複製貼上） ======
+  // 對比表
   const compareRows = useMemo(()=>{
     if (!monthA || !monthB) return [] as any[];
     const A = rows.filter(r=>r.月份===monthA);
@@ -499,100 +489,94 @@ const SortIcon = ({ k }: { k: SortKey }) =>
   };
 
   // 1) 先算總額，拿來算佔比
-const total = useMemo(
-  () => share.reduce((s, d) => s + Number(d.value || 0), 0),
-  [share]
-);
+  const total = useMemo(
+    () => share.reduce((s, d) => s + Number(d.value || 0), 0),
+    [share]
+  );
 
-// 2) 自訂 Tooltip 元件
-function CustomPieTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  const name = p?.name ?? p?.payload?.name ?? "";
-  const value = Number(p?.value ?? p?.payload?.value ?? 0);
-  // Recharts 會給 percent(0~1)；若沒有就自己算
-  const percent = (p?.percent ?? (total ? value / total : 0)) * 100;
+  // 2) 自訂 Tooltip（Pie）
+  function CustomPieTooltip({ active, payload }: any) {
+    if (!active || !payload?.length) return null;
+    const p = payload[0];
+    const name = p?.name ?? p?.payload?.name ?? "";
+    const value = Number(p?.value ?? p?.payload?.value ?? 0);
+    const percent = (p?.percent ?? (total ? value / total : 0)) * 100;
 
-  return (
-    <div
-      style={{
-        pointerEvents: "none",
-        background: "rgba(0,0,0,0.75)",
-        color: "#fff",
-        padding: "6px 10px",
-        borderRadius: 8,
-        fontSize: 12,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-      }}
-    >
-      {/* 小色塊，對應該扇形顏色 */}
-      <span
+    return (
+      <div
         style={{
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          background: p?.fill || p?.color || "#999",
-          flex: "0 0 auto",
+          pointerEvents: "none",
+          background: "rgba(0,0,0,0.75)",
+          color: "#fff",
+          padding: "6px 10px",
+          borderRadius: 8,
+          fontSize: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
         }}
-      />
-      <div>
-        <div style={{ fontWeight: 600 }}>{name}</div>
-        <div style={{ opacity: 0.9 }}>
-          {money(value)}（{percent.toFixed(2)}%）
+      >
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: p?.fill || p?.color || "#999",
+            flex: "0 0 auto",
+          }}
+        />
+        <div>
+          <div style={{ fontWeight: 600 }}>{name}</div>
+          <div style={{ opacity: 0.9 }}>
+            {money(value)}（{percent.toFixed(2)}%）
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 space-y-6 bg-slate-50">
       <h1 className="text-3xl font-bold">📊 開分量 / 營業額（多月累積與對比版）</h1>
 
       {/* 上傳區（支援多檔、追加、指定月份） */}
-{isAdmin && (
-  <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
-    <div className="flex flex-wrap items-center gap-3">
-      <input
-  type="file"
-  accept=".csv,.xlsx,.xls"
-  multiple
-  onChange={(e) => onFiles(e.currentTarget.files)}
-  className="border rounded px-3 h-10 bg-white"
-/>
-
-      <input
-        placeholder="本批月份（例如：2025-07 或 2025年7月）若檔內無月份欄位則套用此值"
-        value={batchMonth}
-        onChange={e=>setBatchMonth(e.target.value)}
-        className="border rounded px-3 h-10 w-[360px] bg-white"
-      />
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={appendMode}
-          onChange={e=>setAppendMode(e.target.checked)}
-        />
-        追加到現有資料（取消打勾＝覆蓋）
-      </label>
-      <button
-        className="ml-auto border rounded h-10 px-3 bg-white"
-        onClick={()=>{ setRows([]); setMonthA(undefined); setMonthB(undefined); }}
-      >
-        清空資料
-      </button>
-    </div>
-    <p className="text-sm text-gray-500">
-      提示：你也可以把 7 月與 8 月放在同一個 Excel，只要有「月份」欄位（或「日期/Month」），系統會自動辨識。
-    </p>
-  </div>
-)}  {/* ← 這行就是少掉的 `)}` */}
-
+      {isAdmin && (
+        <div className="p-4 bg-white rounded-2xl border shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              multiple
+              onChange={(e) => onFiles(e.currentTarget.files)}
+              className="border rounded px-3 h-10 bg-white"
+            />
+            <input
+              placeholder="本批月份（例如：2025-07 或 2025年7月）若檔內無月份欄位則套用此值"
+              value={batchMonth}
+              onChange={e=>setBatchMonth(e.target.value)}
+              className="border rounded px-3 h-10 w-[360px] bg-white"
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={appendMode}
+                onChange={e=>setAppendMode(e.target.checked)}
+              />
+              追加到現有資料（取消打勾＝覆蓋）
+            </label>
+            <button
+              className="ml-auto border rounded h-10 px-3 bg-white"
+              onClick={()=>{ setRows([]); setMonthA(undefined); setMonthB(undefined); }}
+            >
+              清空資料
+            </button>
+          </div>
+          <p className="text-sm text-gray-500">
+            提示：你也可以把 7 月與 8 月放在同一個 Excel，只要有「月份」欄位（或「日期/Month」），系統會自動辨識。
+          </p>
+        </div>
+      )}
 
       {/* 篩選 + 搜尋 + TopN */}
       <div className="flex flex-wrap items-center gap-3">
@@ -611,7 +595,7 @@ function CustomPieTooltip({ active, payload }: any) {
         </select>
       </div>
 
-      {/* KPI（依目前篩選） */}
+      {/* KPI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-4 bg-white rounded-2xl border shadow-sm">
           <p className="text-gray-500">總開分量</p>
@@ -627,7 +611,7 @@ function CustomPieTooltip({ active, payload }: any) {
         </div>
       </div>
 
-      {/* 圖表群（加上 margin/dy 避免擋到刻度） */}
+      {/* 圖表群 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[500px]">
           <h2 className="font-semibold mb-2">開分量帕累托（含累積比例）</h2>
@@ -661,45 +645,42 @@ function CustomPieTooltip({ active, payload }: any) {
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[600px]">
           <h2 className="font-semibold mb-2">代理商營業額占比</h2>
           <ResponsiveContainer width="100%" height="100%">
-  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 120 }}>
-    <Legend
-  layout="vertical"
-  verticalAlign="middle"
-  align="left"
-  wrapperStyle={{ left: 0 }}
-  formatter={(name: string, entry: any) => {
-    const v = Number(entry?.payload?.value ?? 0);
-    const pct = total ? (v / total) * 100 : 0;
-    return (
-      <span style={{ display: "inline-flex", gap: 8 }}>
-        <span>{name}</span>
-        <span style={{ opacity: 0.8 }}>{money(v)}</span>
-        <span style={{ opacity: 0.6 }}>（{pct.toFixed(2)}%）</span>
-      </span>
-    );
-  }}
-/>
-
-  {/* 這個 Tooltip 就是你要的「滑到那一塊，旁邊顯示名稱/金額/佔比」 */}
-  <Tooltip content={<CustomPieTooltip />} offset={12} cursor={false} />
-
-    <Pie
-      data={share}
-      dataKey="value"
-      nameKey="name"
-      cx="50%"                 // 往右移，避免和 Legend 重疊
-      cy="40%"
-      outerRadius="70%"
-      label={false}
-      labelLine={false}
-      paddingAngle={1}
-    >
-      {share.map((_, i) => (
-        <Cell key={i} fill={pieColors[i % pieColors.length]} />
-      ))}
-    </Pie>
-  </PieChart>
-</ResponsiveContainer>
+            <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 120 }}>
+              <Legend
+                layout="vertical"
+                verticalAlign="middle"
+                align="left"
+                wrapperStyle={{ left: 0 }}
+                formatter={(name: string, entry: any) => {
+                  const v = Number(entry?.payload?.value ?? 0);
+                  const pct = total ? (v / total) * 100 : 0;
+                  return (
+                    <span style={{ display: "inline-flex", gap: 8 }}>
+                      <span>{name}</span>
+                      <span style={{ opacity: 0.8 }}>{money(v)}</span>
+                      <span style={{ opacity: 0.6 }}>（{pct.toFixed(2)}%）</span>
+                    </span>
+                  );
+                }}
+              />
+              <Tooltip content={<CustomPieTooltip />} offset={12} cursor={false} />
+              <Pie
+                data={share}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="40%"
+                outerRadius="70%"
+                label={false}
+                labelLine={false}
+                paddingAngle={1}
+              >
+                {share.map((_, i) => (
+                  <Cell key={i} fill={pieColors[i % pieColors.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
         <div className="p-4 bg-white rounded-2xl border shadow-sm h-[600px]">
@@ -711,7 +692,7 @@ function CustomPieTooltip({ active, payload }: any) {
               <YAxis type="category" dataKey="商戶" />
               <Tooltip formatter={(v:any)=>money(Number(v))} />
               <Bar dataKey="開分量" name="開分量" fill={BAR_COLOR} />
-</BarChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -761,8 +742,7 @@ function CustomPieTooltip({ active, payload }: any) {
                   </div>
                 </>
               );
-            })()}pnpm add -D @types/react@^18 @types/react-dom@^18
-
+            })()}
           </div>
         )}
 
@@ -792,95 +772,94 @@ function CustomPieTooltip({ active, payload }: any) {
         </div>
       </div>
 
-      <div className="mb-3">
-  <div className="text-sm font-semibold mb-2">鎖定月份</div>
-  <div className="flex flex-wrap gap-2 items-center">
-    <button onClick={pickAll}
-      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">全部</button>
-    <button onClick={() => quickPick(1)}
-      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">最近1個月</button>
-    <button onClick={() => quickPick(3)}
-      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">最近3個月</button>
-    <button onClick={clearAll}
-      className="px-2 py-1 rounded border text-sm bg-white hover:bg-gray-50">清空</button>
-
-    {allMonths.map(m => {
-      const active = selectedMonths.includes(m);
-      return (
-        <button key={m} onClick={() => toggleMonth(m)}
-          className={`px-2 py-1 rounded border text-sm ${
-            active ? 'bg-blue-600 text-white border-blue-600'
-                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-          }`}>
-          {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ''}
-        </button>
-      );
-    })}
-  </div>
-</div>
-
       {/* 明細表（單月/多月混合視圖） */}
-      <div className="p-4 bg-white rounded-2xl border shadow-sm overflow-auto">
-        <h2 className="font-semibold mb-3">明細表</h2>
+      <div className="p-4 bg-white rounded-2xl border shadow-sm overflow-auto relative z-20 isolate">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="font-semibold">明細表</h2>
+
+          {/* 右側月份鎖定控制 */}
+          <div className="flex flex-wrap gap-2 items-center text-sm">
+            <button type="button" onClick={pickAll}
+              className="px-2 py-1 rounded border bg-white hover:bg-gray-50">全部</button>
+            <button type="button" onClick={() => quickPick(1)}
+              className="px-2 py-1 rounded border bg-white hover:bg-gray-50">最近1個月</button>
+            <button type="button" onClick={() => quickPick(3)}
+              className="px-2 py-1 rounded border bg-white hover:bg-gray-50">最近3個月</button>
+            <button type="button" onClick={clearAll}
+              className="px-2 py-1 rounded border bg-white hover:bg-gray-50">清空</button>
+
+            {allMonths.map((m) => {
+              const active = selectedMonths.includes(m);
+              const btnClass = active
+                ? "px-2 py-1 rounded border bg-blue-600 text-white border-blue-600"
+                : "px-2 py-1 rounded border bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => toggleMonth(m)}
+                  className={btnClass}
+                >
+                  {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-20 relative bg-white">
-  <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
-    {/* 每個欄位用 <button> 包住，確保一定吃到 click */}
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('月份')}
-      >
-        月份 <SortIcon k="月份" />
-      </button>
-    </th>
-
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('代理商')}
-      >
-        代理商 <SortIcon k="代理商" />
-      </button>
-    </th>
-
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('商戶')}
-      >
-        商戶 <SortIcon k="商戶" />
-      </button>
-    </th>
-
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('開分量')}
-      >
-        開分量 <SortIcon k="開分量" />
-      </button>
-    </th>
-
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('營業額')}
-      >
-        營業額 <SortIcon k="營業額" />
-      </button>
-    </th>
-
-    <th>
-      <button type="button"
-        className="flex items-center gap-1 cursor-pointer select-none"
-        onClick={() => toggleSort('比例')}
-      >
-        營業額/開分量 <SortIcon k="比例" />
-      </button>
-    </th>
-  </tr>
-</thead>
+            <tr className="[&>th]:px-3 [&>th]:py-2 text-left">
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('月份')}
+                >
+                  月份 <SortIcon k="月份" />
+                </button>
+              </th>
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('代理商')}
+                >
+                  代理商 <SortIcon k="代理商" />
+                </button>
+              </th>
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('商戶')}
+                >
+                  商戶 <SortIcon k="商戶" />
+                </button>
+              </th>
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('開分量')}
+                >
+                  開分量 <SortIcon k="開分量" />
+                </button>
+              </th>
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('營業額')}
+                >
+                  營業額 <SortIcon k="營業額" />
+                </button>
+              </th>
+              <th>
+                <button type="button"
+                  className="flex items-center gap-1 cursor-pointer select-none"
+                  onClick={() => toggleSort('比例')}
+                >
+                  營業額/開分量 <SortIcon k="比例" />
+                </button>
+              </th>
+            </tr>
+          </thead>
 
           <tbody className="[&>tr:nth-child(odd)]:bg-gray-50">
             {sortedRows.map((r, i) => (
@@ -900,8 +879,6 @@ function CustomPieTooltip({ active, payload }: any) {
           </tbody>
         </table>
       </div>
-
-      
     </div>
   );
 }
