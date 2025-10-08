@@ -789,21 +789,34 @@ export default function App() {
               className="px-2 py-1 rounded border bg-white hover:bg-gray-50">清空</button>
 
             {allMonths.map((m) => {
-              const active = selectedMonths.includes(m);
-              const btnClass = active
-                ? "px-2 py-1 rounded border bg-blue-600 text-white border-blue-600"
-                : "px-2 py-1 rounded border bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => toggleMonth(m)}
-                  className={btnClass}
-                >
-                  {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ""}
-                </button>
-              );
-            })}
+  const active = selectedMonths.includes(m);
+  const btnClass = active
+    ? "px-2 py-1 rounded border bg-blue-600 text-white border-blue-600"
+    : "px-2 py-1 rounded border bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
+
+  return (
+    <button
+      key={m}
+      type="button"
+      title="單擊：只看此月｜Ctrl/⌘+點：多選/取消"
+      className={btnClass}
+      onClick={(e) => {
+        if (e.ctrlKey || e.metaKey) {
+          // 多選/取消（舊的 toggle）
+          setSelectedMonths(prev =>
+            prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
+          );
+        } else {
+          // 單選：只看這個月份
+          setSelectedMonths([m]);
+        }
+      }}
+    >
+      {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ""}
+    </button>
+  );
+})}
+
           </div>
         </div>
 
