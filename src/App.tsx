@@ -168,7 +168,6 @@ const useTopOpenByMerchant = (rows: Row[], n=10) => React.useMemo(()=>{
 
 // ===================== 主元件 =====================
 export default function App() {
-
   // 原始資料（支援累積上傳）
   const [rows, setRows] = useState<Row[]>(seed);
 
@@ -224,7 +223,7 @@ export default function App() {
     }
   }, [allMonths, selectedMonths.length]);
 
-  // 顯示每個月份有幾筆（可省略）
+  // 每月筆數
   const monthCounts = useMemo(() => {
     const m: Record<string, number> = {};
     rows.forEach((r: any) => {
@@ -234,7 +233,6 @@ export default function App() {
     return m;
   }, [rows]);
 
-  
   const pickAll  = () => setSelectedMonths(allMonths);
   const clearAll = () => setSelectedMonths([]);
   const quickPick = (n: number) => setSelectedMonths(allMonths.slice(-n)); // 最近 n 個月
@@ -295,21 +293,23 @@ export default function App() {
   const [excludeAgent, setExcludeAgent] = useState("");
   const [topN, setTopN] = useState(10);
 
-  // 支援多個代理商（逗號或空白分隔）：例「金傑克, 國正 阿峰」
-const excludeSet = useMemo(() => {
-  return new Set(
-    excludeAgent
-      .split(/[,\s]+/)          // 逗號或空白切
-      .map(s => s.trim())
-      .filter(Boolean)
+  // 允許多個關鍵字（逗號 或 空白分隔），採「包含」比對：例 "金傑克, 國正 阿峰"
+  const excludeTokens = useMemo(
+    () =>
+      excludeAgent
+        .split(/[,\s]+/)
+        .map(s => s.trim())
+        .filter(Boolean),
+    [excludeAgent]
   );
-}, [excludeAgent]);
 
-// 共用：這筆資料是否通過「排除代理商」檢查
-const passExclude = React.useCallback(
-  (r: Row) => excludeSet.size === 0 || !excludeSet.has(r.代理商),
-  [excludeSet]
-);
+  // 共用排除規則：有任一 token 被包含就剔除
+  const passExclude = React.useCallback(
+    (r: Row) =>
+      excludeTokens.length === 0 ||
+      !excludeTokens.some(tok => String(r.代理商 ?? "").includes(tok)),
+    [excludeTokens]
+  );
 
   // 搜尋
   const [q, setQ] = useState("");
@@ -397,7 +397,7 @@ const passExclude = React.useCallback(
     return Array.from(new Set(base.map(r=>r.商戶)));
   },[rows, agent]);
 
-  // 篩選 + 搜尋
+  // 篩選 + 搜尋（明細表/圖表用）
   const filtered = useMemo(()=>{
     let d = rows;
 
@@ -408,14 +408,17 @@ const passExclude = React.useCallback(
     }
     if (agent!=="ALL") d = d.filter(r=>r.代理商===agent);
     if (merchant!=="ALL") d = d.filter(r=>r.商戶===merchant);
-    if (excludeSet.size) d = d.filter(passExclude);
 
+    // 排除代理商（共用規則）
+    if (excludeTokens.length) d = d.filter(passExclude);
+
+    // 搜尋
     if (q.trim()) {
       const s = q.trim().toLowerCase();
       d = d.filter(r => r.代理商.toLowerCase().includes(s) || r.商戶.toLowerCase().includes(s));
     }
     return d;
-  }, [rows, agent, merchant, excludeAgent, q, selectedMonths, allMonths]);
+  }, [rows, agent, merchant, excludeTokens, q, selectedMonths, allMonths, passExclude]);
 
   const sortedRows = useMemo(() => {
     const rowsX = [...filtered];
@@ -447,17 +450,16 @@ const passExclude = React.useCallback(
   const pieColors = usePalette(share.length);
 
   // 對比用的基礎資料（已套用「排除代理商」）
-const baseRowsForCompare = useMemo(
-  () => rows.filter(passExclude),
-  [rows, passExclude]
-);
-
+  const baseRowsForCompare = useMemo(
+    () => rows.filter(passExclude),
+    [rows, passExclude]
+  );
 
   // 對比表
   const compareRows = useMemo(()=>{
     if (!monthA || !monthB) return [] as any[];
     const A = baseRowsForCompare.filter(r=>r.月份===monthA);
-const B = baseRowsForCompare.filter(r=>r.月份===monthB);
+    const B = baseRowsForCompare.filter(r=>r.月份===monthB);
     const keyFn = (r: Row) => keyJoin === "商戶" ? r.商戶 : `${r.代理商}__${r.商戶}`;
     const mapA = new Map<string, Row>();
     const mapB = new Map<string, Row>();
@@ -487,7 +489,7 @@ const B = baseRowsForCompare.filter(r=>r.月份===monthB);
     });
     out.sort((a,b)=> (b["Δ營業額"] ?? 0) - (a["Δ營業額"] ?? 0));
     return out;
-  }, [rows, monthA, monthB, keyJoin]);
+  }, [baseRowsForCompare, monthA, monthB, keyJoin]);
 
   const copyTSV = () => {
     if (!compareRows.length) return;
@@ -609,7 +611,12 @@ const B = baseRowsForCompare.filter(r=>r.月份===monthB);
           <option value="ALL">全部商戶</option>
           {merchants.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-        <input placeholder="排除某代理商（例：金傑克）" value={excludeAgent} onChange={e=>setExcludeAgent(e.target.value)} className="border rounded px-3 h-10 w-64 bg-white" />
+        <input
+          placeholder="排除某代理商（可多個：金傑克, 國正 阿峰）"
+          value={excludeAgent}
+          onChange={e=>setExcludeAgent(e.target.value)}
+          className="border rounded px-3 h-10 w-64 bg-white"
+        />
         <input placeholder="搜尋代理商/商戶" value={q} onChange={e=>setQ(e.target.value)} className="border rounded px-3 h-10 w-56 bg-white" />
         <select className="border rounded h-10 px-3 bg-white" value={topN} onChange={e=>setTopN(Number(e.target.value))}>
           {[5,10,15,20].map(n => <option key={n} value={n}>Top {n}</option>)}
@@ -622,7 +629,7 @@ const B = baseRowsForCompare.filter(r=>r.月份===monthB);
           <p className="text-gray-500">總開分量</p>
           <p className="text-2xl md:text-3xl font-bold">{money(kpi.open)}</p>
         </div>
-        <div className="p-4 bg-white rounded-2xl border shadow-sm">
+        <div className="p-4 bg白 rounded-2xl border shadow-sm">
           <p className="text-gray-500">總營業額</p>
           <p className="text-2xl md:text-3xl font-bold">{money(kpi.rev)}</p>
         </div>
@@ -743,20 +750,20 @@ const B = baseRowsForCompare.filter(r=>r.月份===monthB);
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {(() => {
               const sum = (m?:string, f:(r:Row)=>number = r=>r.營業額) =>
-  baseRowsForCompare.filter(r=>r.月份===m).reduce((s,r)=>s+f(r),0);
+                baseRowsForCompare.filter(r=>r.月份===m).reduce((s,r)=>s+f(r),0);
 
-const openA = sum(monthA, r=>r.開分量), openB = sum(monthB, r=>r.開分量);
-const revA  = sum(monthA, r=>r.營業額), revB  = sum(monthB, r=>r.營業額);
+              const openA = sum(monthA, r=>r.開分量), openB = sum(monthB, r=>r.開分量);
+              const revA  = sum(monthA, r=>r.營業額), revB  = sum(monthB, r=>r.營業額);
 
-const ratioA = (() => {
-  const arr = baseRowsForCompare.filter(r=>r.月份===monthA);
-  return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
-})();
+              const ratioA = (() => {
+                const arr = baseRowsForCompare.filter(r=>r.月份===monthA);
+                return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
+              })();
 
-const ratioB = (() => {
-  const arr = baseRowsForCompare.filter(r=>r.月份===monthB);
-  return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
-})();
+              const ratioB = (() => {
+                const arr = baseRowsForCompare.filter(r=>r.月份===monthB);
+                return arr.length ? arr.reduce((s,r)=>s+r.比率,0)/arr.length : 0;
+              })();
 
               return (
                 <>
@@ -821,34 +828,31 @@ const ratioB = (() => {
               className="px-2 py-1 rounded border bg-white hover:bg-gray-50">清空</button>
 
             {allMonths.map((m) => {
-  const active = selectedMonths.includes(m);
-  const btnClass = active
-    ? "px-2 py-1 rounded border bg-blue-600 text-white border-blue-600"
-    : "px-2 py-1 rounded border bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
+              const active = selectedMonths.includes(m);
+              const btnClass = active
+                ? "px-2 py-1 rounded border bg-blue-600 text-white border-blue-600"
+                : "px-2 py-1 rounded border bg-white text-gray-700 border-gray-300 hover:bg-gray-50";
 
-  return (
-    <button
-      key={m}
-      type="button"
-      title="單擊：只看此月｜Ctrl/⌘+點：多選/取消"
-      className={btnClass}
-      onClick={(e) => {
-        if (e.ctrlKey || e.metaKey) {
-          // 多選/取消（舊的 toggle）
-          setSelectedMonths(prev =>
-            prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
-          );
-        } else {
-          // 單選：只看這個月份
-          setSelectedMonths([m]);
-        }
-      }}
-    >
-      {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ""}
-    </button>
-  );
-})}
-
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  title="單擊：只看此月｜Ctrl/⌘+點：多選/取消"
+                  className={btnClass}
+                  onClick={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      setSelectedMonths(prev =>
+                        prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m].sort()
+                      );
+                    } else {
+                      setSelectedMonths([m]); // 單選
+                    }
+                  }}
+                >
+                  {m}{monthCounts[m] ? ` (${monthCounts[m]})` : ""}
+                </button>
+              );
+            })}
           </div>
         </div>
 
